@@ -1,0 +1,5 @@
+{
+  "extends": "../worker/tsconfig.json",
+  "compilerOptions": { "noUnusedLocals": false },
+  "include": ["./**/*.ts", "../worker/src/**/*.ts"]
+}

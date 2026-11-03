@@ -1,0 +1,25 @@
+node_modules/
+dist/
+web/dist/
+.wrangler/
+worker/.wrangler/
+web/.wrangler/
+# Secrets & konfigurasi tempatan
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+# Pangkalan data tempatan
+*.sqlite
+*.sqlite3
+*.db
+# Lain-lain
+.DS_Store
+*.log
+coverage/
+test-results/
+playwright-report/

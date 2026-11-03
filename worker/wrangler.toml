@@ -1,0 +1,75 @@
+# MHM SMS — Worker backend (API).
+# Persekitaran: development (lalai, local), staging, production. Setiap satu ada D1 berasingan.
+# SECRETS TIDAK disimpan di sini. Tetapkan dengan: wrangler secret put <NAMA> -c worker/wrangler.toml --env <env>
+name = "mhm-sms-api"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = false
+
+[vars]
+APP_ENV = "development"
+APP_BASE_URL = "http://localhost:5173"
+SMS_PROVIDER = "mock"
+PAYMENT_PROVIDER = "mock"
+LIVE_PURCHASES_ENABLED = "false"
+LIVE_PAYMENTS_ENABLED = "false"
+EMAIL_PROVIDER = "none"
+SUPPORT_EMAIL = "support@mhmacademy.site"
+EXTRA_ALLOWED_ORIGINS = "http://localhost:4173,http://127.0.0.1:5173,http://127.0.0.1:4173"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mhm-sms-dev"
+database_id = "00000000-0000-0000-0000-000000000000" # local sahaja
+migrations_dir = "migrations"
+
+[triggers]
+crons = ["* * * * *"]
+
+[observability]
+enabled = true
+
+# ---------------------------------------------------------------- staging
+[env.staging]
+name = "mhm-sms-api-staging"
+[env.staging.vars]
+APP_ENV = "staging"
+APP_BASE_URL = "https://staging.sms.mhmacademy.site"
+SMS_PROVIDER = "onlinesim"
+PAYMENT_PROVIDER = "toyyibpay"
+ONLINESIM_BASE_URL = "https://onlinesim.io"
+TOYYIBPAY_BASE_URL = "https://dev.toyyibpay.com"
+LIVE_PURCHASES_ENABLED = "false"
+LIVE_PAYMENTS_ENABLED = "false"
+EMAIL_PROVIDER = "none"
+SUPPORT_EMAIL = "support@mhmacademy.site"
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "mhm-sms-staging"
+database_id = "REPLACE_WITH_STAGING_D1_ID"
+migrations_dir = "migrations"
+[env.staging.triggers]
+crons = ["* * * * *"]
+
+# ---------------------------------------------------------------- production
+[env.production]
+name = "mhm-sms-api"
+[env.production.vars]
+APP_ENV = "production"
+APP_BASE_URL = "https://sms.mhmacademy.site"
+SMS_PROVIDER = "onlinesim"
+PAYMENT_PROVIDER = "toyyibpay"
+ONLINESIM_BASE_URL = "https://onlinesim.io"
+TOYYIBPAY_BASE_URL = "https://toyyibpay.com"
+LIVE_PURCHASES_ENABLED = "false"
+LIVE_PAYMENTS_ENABLED = "false"
+EMAIL_PROVIDER = "none"
+SUPPORT_EMAIL = "support@mhmacademy.site"
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "mhm-sms-prod"
+database_id = "REPLACE_WITH_PRODUCTION_D1_ID"
+migrations_dir = "migrations"
+[env.production.triggers]
+crons = ["* * * * *"]
