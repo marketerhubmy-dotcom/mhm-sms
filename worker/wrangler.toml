@@ -84,7 +84,7 @@ workers_dev = true
 [env.demo.vars]
 EXTRA_ALLOWED_ORIGINS = ""
 APP_ENV = "demo"
-APP_BASE_URL = "https://mhm-sms-demo.REPLACE_WITH_WORKERS_SUBDOMAIN.workers.dev"
+APP_BASE_URL = "https://mhm-sms-demo.marketerhubmy.workers.dev"
 SMS_PROVIDER = "mock"
 PAYMENT_PROVIDER = "mock"
 LIVE_PURCHASES_ENABLED = "false"
