@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual as nodeTimingSafeEqual } from 'node:crypto';
+import { timingSafeEqual as nodeTimingSafeEqual } from 'node:crypto';
 
 /**
  * Password hashing menggunakan PBKDF2-HMAC-SHA256 melalui Web Crypto API platform
@@ -66,11 +66,6 @@ export function randomToken(bytes = 32): string {
 
 export async function sha256Hex(s: string): Promise<string> {
   return hex(await crypto.subtle.digest('SHA-256', enc.encode(s)));
-}
-
-/** MD5 hanya untuk mengesahkan hash callback ToyyibPay (format ditetapkan oleh ToyyibPay). */
-export function md5Hex(s: string): string {
-  return createHash('md5').update(s, 'utf8').digest('hex');
 }
 
 export function uuid(): string {

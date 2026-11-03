@@ -1,7 +1,7 @@
 import { loadConfig, type AppConfig, type Env } from '../env';
 import { ResendEmailProvider, type EmailProvider } from '../providers/email';
 import { MockPaymentProvider } from '../providers/payment/mock';
-import { ToyyibPayProvider } from '../providers/payment/toyyibpay';
+import { ChipProvider } from '../providers/payment/chip';
 import type { PaymentProvider } from '../providers/payment/types';
 import { MockSmsProvider } from '../providers/sms/mock';
 import { OnlineSimProvider } from '../providers/sms/onlinesim';
@@ -34,8 +34,11 @@ export function buildCtx(env: Env, deps: Deps = {}): AppCtx {
       : new MockSmsProvider(env.DB, now));
   const payment =
     deps.payment?.(env, config, now) ??
-    (config.paymentProvider === 'toyyibpay'
-      ? new ToyyibPayProvider(env.TOYYIBPAY_SECRET_KEY ?? '', env.TOYYIBPAY_CATEGORY_CODE ?? '', env.TOYYIBPAY_BASE_URL || 'https://toyyibpay.com')
+    (config.paymentProvider === 'chip'
+      ? new ChipProvider(env.CHIP_SECRET_KEY ?? '', env.CHIP_BRAND_ID ?? '', {
+          baseUrl: env.CHIP_BASE_URL || 'https://gate.chip-in.asia/api/v1',
+          rejectTestPurchases: config.appEnv === 'production',
+        })
       : new MockPaymentProvider(env.DB, config.baseUrl, now));
   const email = config.emailEnabled ? new ResendEmailProvider(env.RESEND_API_KEY!, env.EMAIL_FROM!) : null;
   return { env, config, configErrors: ok ? [] : errors, db: env.DB, sms, payment, email, now };

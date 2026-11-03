@@ -50,7 +50,7 @@ export interface OrderRow {
 export interface PaymentRow {
   id: string;
   order_id: string;
-  provider: 'mock' | 'toyyibpay';
+  provider: 'mock' | 'chip';
   bill_code: string | null;
   payment_url: string | null;
   amount_sen: number;
@@ -189,7 +189,10 @@ export async function createOrder(
       orderRef: ref,
       amountSen: svc.priceSen,
       title: `MHM SMS ${ref}`,
-      description: `Nombor SMS ${svc.name} ${country.name} ${ref}`,
+      description: `Nombor SMS ${svc.name} (${country.name}) - ${ref}`,
+      customerEmail: user.email,
+      customerName: user.name,
+      dueAt: dueAt,
       returnUrl: `${ctx.config.baseUrl}/bayar/kembali?order=${id}`,
       callbackUrl: `${ctx.config.baseUrl}/api/payments/${ctx.payment.name}/callback`,
     });
@@ -228,8 +231,8 @@ export async function processPaymentSignal(ctx: AppCtx, billCode: string, source
   const st = await ctx.payment.fetchStatus(billCode);
   const now = ctx.now();
   if (st.status === 'paid') {
-    const refOk = st.orderRef == null || st.orderRef === order.ref;
-    const amountOk = st.amountSen === payment.amount_sen && payment.amount_sen === order.price_sen && payment.currency === 'MYR';
+    const refOk = st.orderRef === order.ref;
+    const amountOk = st.amountSen === payment.amount_sen && payment.amount_sen === order.price_sen && payment.currency === 'MYR' && st.currency === 'MYR';
     if (!refOk || !amountOk) {
       const r = await ctx.db
         .prepare("UPDATE payments SET status = 'amount_mismatch', verified_amount_sen = ?, provider_ref = ?, updated_at = ? WHERE id = ? AND status IN ('created','pending','failed')")

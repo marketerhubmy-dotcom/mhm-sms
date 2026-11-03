@@ -6,10 +6,12 @@ import type { HonoEnv } from '../http';
 export const callbackRoutes = new Hono<HonoEnv>();
 
 /**
- * Callback ToyyibPay (server-to-server, form POST).
- * 1. Sahkan hash MD5(userSecretKey + status + order_id + refno + "ok").
- * 2. Walaupun sah, JANGAN percaya status dalam payload: sahkan semula melalui getBillTransactions
- *    (status, rujukan pesanan, amaun) dalam processPaymentSignal.
+ * Callback pembayaran (server-to-server).
+ * CHIP: success_callback POST JSON (objek Purchase) dengan header X-Signature
+ *       (RSA PKCS#1 v1.5 + SHA-256 atas badan mentah, kunci daripada GET /public_key/).
+ * 1. Sahkan tandatangan pada badan MENTAH.
+ * 2. Walaupun sah, JANGAN percaya status dalam payload: sahkan semula melalui GET /purchases/{id}/
+ *    (status, rujukan pesanan, amaun, mata wang) dalam processPaymentSignal.
  * 3. Idempotent: callback berulang tidak menyebabkan pembelian berganda.
  */
 callbackRoutes.post('/payments/:provider/callback', async (c) => {
@@ -17,14 +19,9 @@ callbackRoutes.post('/payments/:provider/callback', async (c) => {
   const provider = c.req.param('provider');
   if (provider !== app.payment.name) return c.text('Not found', 404);
   if (provider === 'mock' && app.config.mode !== 'demo') return c.text('Not found', 404);
-  let form: Record<string, string> = {};
-  try {
-    const fd = await c.req.parseBody();
-    form = Object.fromEntries(Object.entries(fd).map(([k, v]) => [k, typeof v === 'string' ? v : '']));
-  } catch {
-    return c.text('Bad request', 400);
-  }
-  const check = app.payment.verifyCallback(form);
+  const rawBody = await c.req.text();
+  if (rawBody.length > 200_000) return c.text('Payload too large', 413);
+  const check = await app.payment.verifyCallback({ rawBody, headers: c.req.raw.headers });
   const now = app.now();
   if (!check.valid || !check.billCode) {
     await app.db

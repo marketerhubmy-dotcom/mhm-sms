@@ -12,7 +12,7 @@ export function Home() {
             <span className="eyebrow">Nombor sementara · Harga dalam RM</span>
             <h1>Terima SMS pengesahan tanpa dedahkan nombor peribadi.</h1>
             <p className="lead">
-              Pilih negara dan servis, bayar per pesanan melalui FPX, dan dapatkan nombor maya sementara untuk menerima kod SMS. Tiada langganan, tiada dompet tambahan.
+              Pilih negara dan servis, bayar per pesanan melalui FPX atau kaedah lain yang tersedia, dan dapatkan nombor maya sementara untuk menerima kod SMS. Tiada langganan, tiada dompet tambahan.
             </p>
             <div className="row" style={{ marginTop: 22 }}>
               <Link className="btn btn-primary" to={user ? '/akaun' : '/daftar'}>
@@ -156,7 +156,7 @@ export function Faq() {
     ['Bagaimana jika SMS tidak masuk?', 'Jika tiada SMS diterima dan pesanan tamat atau dibatalkan, anda boleh membuat permohonan refund dari halaman pesanan. Setiap permohonan disemak secara manual — lihat Polisi Refund.'],
     ['Boleh saya guna nombor yang sama lagi?', 'Tidak. Selepas pesanan selesai atau tamat, nombor tidak boleh digunakan semula. Sewaan nombor jangka panjang belum ditawarkan.'],
     ['Kenapa tiada servis bank atau e-wallet?', 'Pembekal kami tidak menyokong penerimaan SMS daripada bank, sistem pembayaran dan institusi kewangan. Servis tersebut tidak ditawarkan.'],
-    ['Kaedah bayaran apa yang diterima?', 'Pembayaran per pesanan melalui gerbang pembayaran dalam talian (FPX). Tiada dompet atau baki tersimpan.'],
+    ['Kaedah bayaran apa yang diterima?', 'Pembayaran per pesanan melalui gerbang pembayaran CHIP. Kaedah yang dipaparkan di halaman pembayaran (contohnya FPX, kad atau e-wallet) bergantung kepada yang diaktifkan. Tiada dompet atau baki tersimpan.'],
     ['Adakah kandungan SMS saya disimpan?', 'Kandungan SMS disimpan untuk tempoh terhad supaya anda boleh melihatnya, kemudian dipadam secara automatik. Lihat Dasar Privasi.'],
     ['Saya sudah bayar tetapi status belum berubah?', 'Pengesahan bayaran biasanya mengambil masa beberapa saat hingga beberapa minit. Jika masih belum berubah selepas 15 minit, hubungi support dengan nombor rujukan pesanan.'],
   ];

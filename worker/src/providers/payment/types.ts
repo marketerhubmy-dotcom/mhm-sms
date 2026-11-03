@@ -3,6 +3,10 @@ export interface CreateBillInput {
   amountSen: number;
   title: string;
   description: string;
+  customerEmail: string;
+  customerName: string;
+  /** Masa (ms) selepas ini bil tidak boleh dibayar lagi. */
+  dueAt: number;
   returnUrl: string;
   callbackUrl: string;
 }
@@ -13,7 +17,7 @@ export interface CreateBillResult {
 }
 
 export type PaymentStatusResult =
-  | { status: 'paid'; amountSen: number; orderRef: string | null; providerRef: string | null }
+  | { status: 'paid'; amountSen: number; currency: string; orderRef: string | null; providerRef: string | null }
   | { status: 'pending' | 'failed' | 'none' }
   | { status: 'unknown'; code: string };
 
@@ -23,10 +27,15 @@ export interface CallbackCheck {
   billCode: string | null;
 }
 
+export interface CallbackRequest {
+  rawBody: string;
+  headers: Headers;
+}
+
 export interface PaymentProvider {
-  readonly name: 'mock' | 'toyyibpay';
+  readonly name: 'mock' | 'chip';
   createBill(input: CreateBillInput): Promise<CreateBillResult>;
-  verifyCallback(form: Record<string, string>): CallbackCheck;
+  verifyCallback(req: CallbackRequest): Promise<CallbackCheck>;
   fetchStatus(billCode: string): Promise<PaymentStatusResult>;
   deactivateBill(billCode: string): Promise<void>;
 }

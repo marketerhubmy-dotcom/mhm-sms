@@ -5,12 +5,11 @@
 # --- Hanya jika menguji adapter sebenar secara tempatan (staging/sandbox sahaja) ---
 # APP_ENV=staging
 # SMS_PROVIDER=onlinesim
-# PAYMENT_PROVIDER=toyyibpay
-# TOYYIBPAY_BASE_URL=https://dev.toyyibpay.com
+# PAYMENT_PROVIDER=chip
 ONLINESIM_API_KEY=
 ONLINESIM_WEBHOOK_TOKEN=
-TOYYIBPAY_SECRET_KEY=
-TOYYIBPAY_CATEGORY_CODE=
+CHIP_SECRET_KEY=
+CHIP_BRAND_ID=
 RESEND_API_KEY=
 EMAIL_FROM=
 LIVE_PURCHASES_ENABLED=false

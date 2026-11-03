@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { loadConfig } from '../worker/src/env';
-import { md5Hex, hashPassword, verifyPassword } from '../worker/src/lib/crypto';
+import { hashPassword, verifyPassword } from '../worker/src/lib/crypto';
 import { computePrice, decimalToMicros, microsToDecimal, rmStringToSen, senToRm } from '../worker/src/lib/money';
 import { canTransition, refundEligible, TRANSITIONS } from '../worker/src/lib/orderState';
 import { isBlockedService } from '../worker/src/services/catalog';
-import { ToyyibPayProvider } from '../worker/src/providers/payment/toyyibpay';
+import { ChipProvider } from '../worker/src/providers/payment/chip';
+import { BRAND_ID, makeChipFixture } from './chipFixture';
 import { OnlineSimProvider } from '../worker/src/providers/sms/onlinesim';
 
 const base = { fxRateMicros: 4_700_000, markupBps: 5000, fixedFeeSen: 50, minPriceSen: 200, roundingSen: 10 };
@@ -84,30 +85,30 @@ describe('konfigurasi mod', () => {
     expect(r.ok).toBe(false);
   });
   it('demo menolak campuran (bayaran sebenar + nombor palsu)', () => {
-    const r = loadConfig({ DB, APP_ENV: 'demo', SMS_PROVIDER: 'mock', PAYMENT_PROVIDER: 'toyyibpay', TOYYIBPAY_SECRET_KEY: 'x', TOYYIBPAY_CATEGORY_CODE: 'y' });
+    const r = loadConfig({ DB, APP_ENV: 'demo', SMS_PROVIDER: 'mock', PAYMENT_PROVIDER: 'chip', CHIP_SECRET_KEY: 'x', CHIP_BRAND_ID: BRAND_ID });
     expect(r.ok).toBe(false);
     expect(r.errors.join()).toMatch(/bercampur/);
   });
   it('production sebenar: live OFF secara lalai', () => {
     const r = loadConfig({
-      DB, APP_ENV: 'production', APP_BASE_URL: 'https://sms.mhmacademy.site', SMS_PROVIDER: 'onlinesim', PAYMENT_PROVIDER: 'toyyibpay',
-      ONLINESIM_API_KEY: 'k', TOYYIBPAY_SECRET_KEY: 's', TOYYIBPAY_CATEGORY_CODE: 'c', TOYYIBPAY_BASE_URL: 'https://toyyibpay.com',
+      DB, APP_ENV: 'production', APP_BASE_URL: 'https://sms.mhmacademy.site', SMS_PROVIDER: 'onlinesim', PAYMENT_PROVIDER: 'chip',
+      ONLINESIM_API_KEY: 'k', CHIP_SECRET_KEY: 's', CHIP_BRAND_ID: BRAND_ID,
     });
     expect(r.ok).toBe(true);
     expect(r.config.mode).toBe('live');
     expect(r.config.purchasesEnabled).toBe(false);
     expect(r.config.paymentsEnabled).toBe(false);
   });
-  it('production menolak sandbox ToyyibPay dan http', () => {
+  it('production menolak http dan CHIP_BRAND_ID bukan UUID', () => {
     const r = loadConfig({
-      DB, APP_ENV: 'production', APP_BASE_URL: 'http://sms.mhmacademy.site', SMS_PROVIDER: 'onlinesim', PAYMENT_PROVIDER: 'toyyibpay',
-      ONLINESIM_API_KEY: 'k', TOYYIBPAY_SECRET_KEY: 's', TOYYIBPAY_CATEGORY_CODE: 'c', TOYYIBPAY_BASE_URL: 'https://dev.toyyibpay.com',
+      DB, APP_ENV: 'production', APP_BASE_URL: 'http://sms.mhmacademy.site', SMS_PROVIDER: 'onlinesim', PAYMENT_PROVIDER: 'chip',
+      ONLINESIM_API_KEY: 'k', CHIP_SECRET_KEY: 's', CHIP_BRAND_ID: 'bukan-uuid',
     });
     expect(r.ok).toBe(false);
     expect(r.errors.length).toBe(2);
   });
   it('production tanpa secrets ditolak', () => {
-    const r = loadConfig({ DB, APP_ENV: 'production', APP_BASE_URL: 'https://x.y', SMS_PROVIDER: 'onlinesim', PAYMENT_PROVIDER: 'toyyibpay' });
+    const r = loadConfig({ DB, APP_ENV: 'production', APP_BASE_URL: 'https://x.y', SMS_PROVIDER: 'onlinesim', PAYMENT_PROVIDER: 'chip' });
     expect(r.ok).toBe(false);
     expect(r.errors.length).toBe(3);
   });
@@ -155,39 +156,99 @@ describe('servis disekat', () => {
   });
 });
 
-describe('adapter ToyyibPay', () => {
-  const fetchOf = (body: string) => (async () => new Response(body, { status: 200 })) as unknown as typeof fetch;
-  it('mengesahkan hash callback mengikut formula rasmi', () => {
-    const p = new ToyyibPayProvider('SECRET', 'cat', 'https://dev.toyyibpay.com');
-    const form = { status: '1', order_id: 'MHMABC', refno: 'TP123', billcode: 'abc', hash: md5Hex('SECRET1MHMABCTP123ok') };
-    expect(p.verifyCallback(form).valid).toBe(true);
-    expect(p.verifyCallback({ ...form, status: '3' }).valid).toBe(false);
-    expect(p.verifyCallback({ ...form, hash: '' }).valid).toBe(false);
+describe('adapter CHIP', () => {
+  it('createBill: amaun dalam sen, rujukan, redirect & callback, kunci dalam header', async () => {
+    const fx = await makeChipFixture();
+    const p = new ChipProvider('SECRET', BRAND_ID, { fetchImpl: fx.fetchImpl, publicKeyPem: fx.publicKeyPem });
+    const r = await p.createBill({
+      orderRef: 'MHMX', amountSen: 630, title: 'MHM SMS MHMX', description: 'Nombor SMS Telegram (Malaysia) - MHMX',
+      customerEmail: 'a@b.my', customerName: 'Ali', dueAt: 1_800_000_000_000, returnUrl: 'https://a/r', callbackUrl: 'https://a/c',
+    });
+    expect(r.paymentUrl).toMatch(/^https:\/\/gate\.chip-in\.asia\/p\//);
+    const call = fx.calls.find((c) => c.path === '/purchases/')!;
+    expect(call.auth).toBe('Bearer SECRET');
+    expect(call.body.purchase.products[0].price).toBe(630);
+    expect(call.body.purchase.currency).toBe('MYR');
+    expect(call.body.reference).toBe('MHMX');
+    expect(call.body.brand_id).toBe(BRAND_ID);
+    expect(call.body.success_callback).toBe('https://a/c');
+    expect(call.body.due).toBe(1_800_000_000);
+    expect(fx.calls.every((c) => !c.path.includes('SECRET'))).toBe(true);
   });
-  it('fetchStatus: berjaya dengan amaun RM', async () => {
-    const p = new ToyyibPayProvider('S', 'c', 'https://x', '0',
-      fetchOf(JSON.stringify([{ billpaymentStatus: '1', billpaymentAmount: '6.30', billExternalReferenceNo: 'MHM1', billpaymentInvoiceNo: 'TP1' }])));
-    expect(await p.fetchStatus('b')).toEqual({ status: 'paid', amountSen: 630, orderRef: 'MHM1', providerRef: 'TP1' });
+
+  it('fetchStatus: paid/cleared/settled = dibayar; cancelled/expired = gagal; error = belum muktamad; refunded = semakan', async () => {
+    const fx = await makeChipFixture();
+    const p = new ChipProvider('S', BRAND_ID, { fetchImpl: fx.fetchImpl, publicKeyPem: fx.publicKeyPem });
+    const { billCode } = await p.createBill({ orderRef: 'MHM1', amountSen: 420, title: 't', description: 'd', customerEmail: 'a@b.my', customerName: 'A', dueAt: Date.now(), returnUrl: 'https://r', callbackUrl: 'https://c' });
+    const set = (st: string) => (fx.purchases.get(billCode)!.status = st);
+    expect((await p.fetchStatus(billCode)).status).toBe('pending');
+    for (const st of ['paid', 'cleared', 'settled']) {
+      set(st);
+      expect(await p.fetchStatus(billCode)).toEqual({ status: 'paid', amountSen: 420, currency: 'MYR', orderRef: 'MHM1', providerRef: billCode });
+    }
+    for (const st of ['cancelled', 'expired']) {
+      set(st);
+      expect((await p.fetchStatus(billCode)).status).toBe('failed');
+    }
+    set('error');
+    expect((await p.fetchStatus(billCode)).status).toBe('pending');
+    set('refunded');
+    expect(await p.fetchStatus(billCode)).toEqual({ status: 'unknown', code: 'REVERSED_REFUNDED' });
+    expect((await p.fetchStatus('00000000-0000-0000-0000-000000000000')).status).toBe('none');
+    expect((await p.fetchStatus('bukan-id')).status).toBe('unknown');
   });
-  it('fetchStatus: pending/gagal/kosong/rosak', async () => {
-    expect((await new ToyyibPayProvider('S', 'c', 'https://x', '0', fetchOf('[{"billpaymentStatus":"2"}]')).fetchStatus('b')).status).toBe('pending');
-    expect((await new ToyyibPayProvider('S', 'c', 'https://x', '0', fetchOf('[{"billpaymentStatus":"3"}]')).fetchStatus('b')).status).toBe('failed');
-    expect((await new ToyyibPayProvider('S', 'c', 'https://x', '0', fetchOf('[]')).fetchStatus('b')).status).toBe('none');
-    expect((await new ToyyibPayProvider('S', 'c', 'https://x', '0', fetchOf('<html>')).fetchStatus('b')).status).toBe('unknown');
+
+  it('production menolak pembelian ujian (is_test) dan brand berbeza', async () => {
+    const fx = await makeChipFixture();
+    const p = new ChipProvider('S', BRAND_ID, { fetchImpl: fx.fetchImpl, publicKeyPem: fx.publicKeyPem, rejectTestPurchases: true });
+    const { billCode } = await p.createBill({ orderRef: 'MHM2', amountSen: 200, title: 't', description: 'd', customerEmail: 'a@b.my', customerName: 'A', dueAt: Date.now(), returnUrl: 'https://r', callbackUrl: 'https://c' });
+    fx.purchases.get(billCode)!.status = 'paid';
+    expect(await p.fetchStatus(billCode)).toEqual({ status: 'unknown', code: 'TEST_PURCHASE' });
+    fx.purchases.get(billCode)!.is_test = false;
+    fx.purchases.get(billCode)!.brand_id = '11111111-1111-1111-1111-111111111111';
+    expect(await p.fetchStatus(billCode)).toEqual({ status: 'unknown', code: 'BRAND_MISMATCH' });
   });
-  it('createBill menghantar amaun dalam sen dan memulangkan URL', async () => {
-    let sent = '';
-    const f = (async (_u: string, init: RequestInit) => {
-      sent = String(init.body);
-      return new Response('[{"BillCode":"gcbhict9"}]');
-    }) as unknown as typeof fetch;
-    const p = new ToyyibPayProvider('S', 'CAT', 'https://dev.toyyibpay.com', '0', f);
-    const r = await p.createBill({ orderRef: 'MHMX', amountSen: 630, title: 'MHM SMS MHMX', description: 'Nombor SMS (Telegram) - Malaysia', returnUrl: 'https://a/r', callbackUrl: 'https://a/c' });
-    expect(r).toEqual({ billCode: 'gcbhict9', paymentUrl: 'https://dev.toyyibpay.com/gcbhict9' });
-    const q = new URLSearchParams(sent);
-    expect(q.get('billAmount')).toBe('630');
-    expect(q.get('billExternalReferenceNo')).toBe('MHMX');
-    expect(q.get('billDescription')).toBe('Nombor SMS Telegram Malaysia');
+
+  it('verifyCallback: tandatangan RSA sah diterima; badan diubah atau tandatangan palsu ditolak', async () => {
+    const fx = await makeChipFixture();
+    const p = new ChipProvider('S', BRAND_ID, { fetchImpl: fx.fetchImpl, publicKeyPem: fx.publicKeyPem });
+    const body = JSON.stringify({ id: '7ed93a3a-73f1-4979-92de-32928aced353', status: 'paid', event_type: 'purchase.paid' });
+    const sig = await fx.sign(body);
+    expect(await p.verifyCallback({ rawBody: body, headers: new Headers({ 'X-Signature': sig }) })).toEqual({ valid: true, billCode: '7ed93a3a-73f1-4979-92de-32928aced353' });
+    const tampered = body.replace('"paid"', '"paid" ');
+    expect((await p.verifyCallback({ rawBody: tampered, headers: new Headers({ 'X-Signature': sig }) })).valid).toBe(false);
+    expect((await p.verifyCallback({ rawBody: body, headers: new Headers({ 'X-Signature': btoa('palsu') }) })).valid).toBe(false);
+    expect((await p.verifyCallback({ rawBody: body, headers: new Headers() })).valid).toBe(false);
+    expect((await p.verifyCallback({ rawBody: 'bukan json', headers: new Headers({ 'X-Signature': sig }) })).valid).toBe(false);
+  });
+
+  it('verifyCallback mengambil kunci awam daripada GET /public_key/ (rentetan PEM JSON)', async () => {
+    const fx = await makeChipFixture();
+    const p = new ChipProvider('S', BRAND_ID, { fetchImpl: fx.fetchImpl });
+    const body = JSON.stringify({ id: '7ed93a3a-73f1-4979-92de-32928aced353' });
+    expect((await p.verifyCallback({ rawBody: body, headers: new Headers({ 'X-Signature': await fx.sign(body) }) })).valid).toBe(true);
+    expect(fx.calls.some((c) => c.path === '/public_key/')).toBe(true);
+  });
+
+  it('kunci awam diputar oleh CHIP: kunci cache lama -> ambil semula sekali, kemudian sah', async () => {
+    const oldFx = await makeChipFixture();
+    const body = JSON.stringify({ id: '7ed93a3a-73f1-4979-92de-32928aced353' });
+    const p1 = new ChipProvider('S', BRAND_ID, { fetchImpl: oldFx.fetchImpl, baseUrl: 'https://rotate.test/api/v1' });
+    expect((await p1.verifyCallback({ rawBody: body, headers: new Headers({ 'X-Signature': await oldFx.sign(body) }) })).valid).toBe(true);
+    const newFx = await makeChipFixture();
+    const p2 = new ChipProvider('S', BRAND_ID, { fetchImpl: newFx.fetchImpl, baseUrl: 'https://rotate.test/api/v1' });
+    expect((await p2.verifyCallback({ rawBody: body, headers: new Headers({ 'X-Signature': await newFx.sign(body) }) })).valid).toBe(true);
+    expect(newFx.calls.filter((c) => c.path === '/public_key/').length).toBe(1);
+    // Tandatangan daripada kunci yang tidak sah lagi tetap ditolak
+    expect((await p2.verifyCallback({ rawBody: body, headers: new Headers({ 'X-Signature': await oldFx.sign(body) }) })).valid).toBe(false);
+  });
+
+  it('deactivateBill memanggil /purchases/{id}/cancel/', async () => {
+    const fx = await makeChipFixture();
+    const p = new ChipProvider('S', BRAND_ID, { fetchImpl: fx.fetchImpl, publicKeyPem: fx.publicKeyPem });
+    const { billCode } = await p.createBill({ orderRef: 'MHM3', amountSen: 200, title: 't', description: 'd', customerEmail: 'a@b.my', customerName: 'A', dueAt: Date.now(), returnUrl: 'https://r', callbackUrl: 'https://c' });
+    await p.deactivateBill(billCode);
+    expect(fx.purchases.get(billCode)!.status).toBe('cancelled');
   });
 });
 

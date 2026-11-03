@@ -1,5 +1,5 @@
 import { randomToken } from '../../lib/crypto';
-import type { CallbackCheck, CreateBillInput, CreateBillResult, PaymentProvider, PaymentStatusResult } from './types';
+import type { CallbackCheck, CallbackRequest, CreateBillInput, CreateBillResult, PaymentProvider, PaymentStatusResult } from './types';
 
 /**
  * Pembayaran SIMULASI (DEMO). Tiada wang sebenar. Hanya aktif apabila APP_ENV=development/demo
@@ -18,8 +18,10 @@ export class MockPaymentProvider implements PaymentProvider {
     return { billCode, paymentUrl: `${this.baseUrl}/demo-bayar/${billCode}` };
   }
 
-  verifyCallback(form: Record<string, string>): CallbackCheck {
-    return { valid: !!form.billcode, billCode: form.billcode ?? null };
+  async verifyCallback(req: CallbackRequest): Promise<CallbackCheck> {
+    // Demo sahaja: tiada tandatangan. Status tetap disahkan melalui fetchStatus().
+    const billCode = new URLSearchParams(req.rawBody).get('billcode');
+    return { valid: !!billCode, billCode };
   }
 
   async fetchStatus(billCode: string): Promise<PaymentStatusResult> {
@@ -29,7 +31,7 @@ export class MockPaymentProvider implements PaymentProvider {
       status: string;
     }>();
     if (!row) return { status: 'none' };
-    if (row.status === 'paid') return { status: 'paid', amountSen: row.amount_sen, orderRef: row.order_ref, providerRef: `DEMO-${billCode}` };
+    if (row.status === 'paid') return { status: 'paid', amountSen: row.amount_sen, currency: 'MYR', orderRef: row.order_ref, providerRef: `DEMO-${billCode}` };
     if (row.status === 'failed') return { status: 'failed' };
     return { status: 'pending' };
   }

@@ -1,7 +1,7 @@
 # Deploy demo MHM SMS ke Cloudflare (mod SIMULASI)
 
 Tujuan: URL demo yang boleh dibuka dari mana-mana pelayar, dengan nombor, SMS dan pembayaran **simulasi** sahaja.
-Tiada API key OnlineSIM/ToyyibPay diperlukan, dan Worker akan menolak konfigurasi selain mock dalam `APP_ENV=demo` jika bercampur.
+Tiada API key OnlineSIM/CHIP diperlukan, dan Worker akan menolak konfigurasi selain mock dalam `APP_ENV=demo` jika bercampur.
 
 Hasil: satu Worker `mhm-sms-demo` di `https://mhm-sms-demo.<subdomain-anda>.workers.dev` yang menyajikan frontend dan `/api` pada origin yang sama (cookie `__Host-` HttpOnly + Secure, CSRF, tiada CORS). Pelan percuma mencukupi.
 

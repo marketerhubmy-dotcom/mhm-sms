@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { md5Hex } from '../worker/src/lib/crypto';
+import { ChipProvider } from '../worker/src/providers/payment/chip';
+import { BRAND_ID, makeChipFixture } from './chipFixture';
 import { MockPaymentProvider } from '../worker/src/providers/payment/mock';
-import type { PaymentProvider, PaymentStatusResult } from '../worker/src/providers/payment/types';
 import { MockSmsProvider } from '../worker/src/providers/sms/mock';
 import type { BuyResult, SmsProvider } from '../worker/src/providers/sms/types';
 import { buildCtx } from '../worker/src/services/context';
@@ -367,75 +367,107 @@ describe('idempotensi pembayaran & pembelian', () => {
   });
 });
 
-describe('ToyyibPay melalui endpoint callback', () => {
-  class FakeToyyib implements PaymentProvider {
-    readonly name = 'toyyibpay' as const;
-    status: PaymentStatusResult = { status: 'pending' };
-    bills = 0;
-    async createBill() {
-      this.bills++;
-      return { billCode: `tp${this.bills}${Date.now()}`, paymentUrl: 'https://dev.toyyibpay.com/x' };
-    }
-    verifyCallback(form: Record<string, string>) {
-      const expected = md5Hex(`SECRET${form.status}${form.order_id}${form.refno}ok`);
-      return { valid: form.hash === expected, billCode: form.billcode ?? null };
-    }
-    async fetchStatus() {
-      return this.status;
-    }
-    async deactivateBill() {}
-  }
-
-  it('hash tidak sah ditolak; payload "berjaya" tidak dipercayai tanpa pengesahan API; amaun salah ditolak', async () => {
+describe('CHIP melalui endpoint callback', () => {
+  async function chipSetup() {
     const clock = new Clock();
     const sms = new CountingSms(proxy.env.DB, clock.now);
-    const pay = new FakeToyyib();
+    const fx = await makeChipFixture();
+    const pay = new ChipProvider('SECRET', BRAND_ID, { fetchImpl: fx.fetchImpl, publicKeyPem: fx.publicKeyPem });
     const { app, env } = makeApp(proxy, {}, { now: clock.now, sms: () => sms, payment: () => pay });
     const c = new Client(app, env);
     await c.register();
     const price = await getPrice(c);
     const r = await c.req('POST', '/api/orders', { countryCode: 60, serviceSlug: 'telegram', expectedPriceSen: price });
-    const orderId = r.json.order.id;
-    const ref = r.json.order.ref;
-    const billcode = (await proxy.env.DB.prepare('SELECT bill_code FROM payments WHERE order_id = ?').bind(orderId).first<{ bill_code: string }>())!.bill_code;
-    const send = (form: Record<string, string>) =>
-      app.fetch(new Request('http://localhost:5173/api/payments/toyyibpay/callback', { method: 'POST', body: new URLSearchParams(form) }), env);
+    expect(r.status).toBe(201);
+    expect(r.json.paymentUrl).toMatch(/^https:\/\/gate\.chip-in\.asia\/p\//);
+    const orderId = r.json.order.id as string;
+    const ref = r.json.order.ref as string;
+    const billCode = (await proxy.env.DB.prepare('SELECT bill_code FROM payments WHERE order_id = ?').bind(orderId).first<{ bill_code: string }>())!.bill_code;
+    const purchase = fx.purchases.get(billCode)!;
+    const send = async (body: string, sig?: string) =>
+      app.fetch(
+        new Request('http://localhost:5173/api/payments/chip/callback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(sig ? { 'X-Signature': sig } : {}) },
+          body,
+        }),
+        env,
+      );
+    return { c, sms, fx, orderId, ref, billCode, purchase, price, send, app, env };
+  }
 
-    const good = { refno: 'TP1', status: '1', reason: 'Approved', billcode, order_id: ref, amount: '1', transaction_time: 'x' };
-    expect((await send({ ...good, hash: 'palsu' })).status).toBe(400);
+  it('pesanan mencipta purchase CHIP dengan amaun, rujukan & callback yang betul', async () => {
+    const { purchase, price, ref, fx } = await chipSetup();
+    expect(purchase.purchase.total).toBe(price);
+    expect(purchase.purchase.currency).toBe('MYR');
+    expect(purchase.reference).toBe(ref);
+    expect(purchase.success_callback).toBe('http://localhost:5173/api/payments/chip/callback');
+    expect(purchase.brand_id).toBe(BRAND_ID);
+    expect(fx.calls.find((x) => x.path === '/purchases/')!.body.client.email).toMatch(/@contoh\.my$/);
+  });
 
-    // Hash sah, tetapi API pembekal masih "pending" -> tidak dibayar
-    expect((await send({ ...good, hash: md5Hex(`SECRET1${ref}TP1ok`) })).status).toBe(200);
+  it('tandatangan palsu ditolak; payload "paid" tidak dipercayai jika API masih belum dibayar', async () => {
+    const { c, sms, orderId, billCode, send, fx } = await chipSetup();
+    const fakePaid = JSON.stringify({ id: billCode, status: 'paid', event_type: 'purchase.paid' });
+    expect((await send(fakePaid)).status).toBe(400);
+    expect((await send(fakePaid, btoa('palsu'))).status).toBe(400);
+    // Tandatangan sah, tetapi GET /purchases/{id}/ masih "created" -> belum dibayar
+    expect((await send(fakePaid, await fx.sign(fakePaid))).status).toBe(200);
     expect((await c.req('GET', `/api/orders/${orderId}`)).json.order.status).toBe('pending_payment');
+    expect(sms.buyCalls).toBe(0);
+  });
 
-    // API kata dibayar tetapi amaun berbeza -> mismatch, tiada pembelian
-    pay.status = { status: 'paid', amountSen: price - 10, orderRef: ref, providerRef: 'TP1' };
-    await send({ ...good, hash: md5Hex(`SECRET1${ref}TP1ok`) });
-    let o = await c.req('GET', `/api/orders/${orderId}`);
+  it('amaun berbeza -> mismatch, tiada pembelian', async () => {
+    const { c, sms, orderId, billCode, purchase, price, send, fx } = await chipSetup();
+    purchase.status = 'paid';
+    purchase.purchase.total = price - 10;
+    const body = JSON.stringify({ id: billCode, status: 'paid' });
+    await send(body, await fx.sign(body));
+    const o = await c.req('GET', `/api/orders/${orderId}`);
     expect(o.json.order.status).toBe('pending_payment');
     expect(o.json.order.paymentIssue).toBe(true);
     expect(sms.buyCalls).toBe(0);
   });
 
-  it('rujukan pesanan salah ditolak; betul -> dibayar sekali', async () => {
-    const clock = new Clock();
-    const sms = new CountingSms(proxy.env.DB, clock.now);
-    const pay = new FakeToyyib();
-    const { app, env } = makeApp(proxy, {}, { now: clock.now, sms: () => sms, payment: () => pay });
-    const c = new Client(app, env);
-    await c.register();
-    const price = await getPrice(c);
-    const r = await c.req('POST', '/api/orders', { countryCode: 60, serviceSlug: 'telegram', expectedPriceSen: price });
-    const orderId = r.json.order.id;
-    const ref = r.json.order.ref;
-    const billcode = (await proxy.env.DB.prepare('SELECT bill_code FROM payments WHERE order_id = ?').bind(orderId).first<{ bill_code: string }>())!.bill_code;
-    const form = { refno: 'TP2', status: '1', billcode, order_id: ref, hash: md5Hex(`SECRET1${ref}TP2ok`) };
-    const send = () => app.fetch(new Request('http://localhost:5173/api/payments/toyyibpay/callback', { method: 'POST', body: new URLSearchParams(form) }), env);
+  it('rujukan atau mata wang berbeza ditolak', async () => {
+    const a = await chipSetup();
+    a.purchase.status = 'paid';
+    a.purchase.reference = 'MHMLAIN';
+    const b1 = JSON.stringify({ id: a.billCode });
+    await a.send(b1, await a.fx.sign(b1));
+    expect((await a.c.req('GET', `/api/orders/${a.orderId}`)).json.order.status).toBe('pending_payment');
+    const b = await chipSetup();
+    b.purchase.status = 'paid';
+    b.purchase.purchase.currency = 'SGD';
+    const b2 = JSON.stringify({ id: b.billCode });
+    await b.send(b2, await b.fx.sign(b2));
+    expect((await b.c.req('GET', `/api/orders/${b.orderId}`)).json.order.status).toBe('pending_payment');
+    expect(a.sms.buyCalls + b.sms.buyCalls).toBe(0);
+  });
 
-    pay.status = { status: 'paid', amountSen: price, orderRef: 'MHMLAIN', providerRef: 'TP2' };
-    await send();
-    expect((await c.req('GET', `/api/orders/${orderId}`)).json.order.status).toBe('pending_payment');
-    expect(sms.buyCalls).toBe(0);
+  it('dibayar & disahkan -> nombor dibeli SEKALI walaupun callback berulang/serentak', async () => {
+    const { c, sms, orderId, billCode, purchase, send, fx } = await chipSetup();
+    purchase.status = 'paid';
+    const body = JSON.stringify({ id: billCode, status: 'paid', event_type: 'purchase.paid' });
+    const sig = await fx.sign(body);
+    sms.delayMs = 30;
+    const res = await Promise.all(Array.from({ length: 5 }, () => send(body, sig)));
+    expect(res.every((r) => r.status === 200)).toBe(true);
+    await send(body, sig);
+    expect(sms.buyCalls).toBe(1);
+    const o = await c.req('GET', `/api/orders/${orderId}`);
+    expect(o.json.order.status).toBe('active');
+    expect(o.json.order.payment.provider).toBe('chip');
+  });
+
+  it('pelanggan kembali (redirect) -> sahkan melalui API; batal sebelum bayar memanggil cancel', async () => {
+    const a = await chipSetup();
+    expect((await a.c.req('GET', `/api/orders/${a.orderId}?check=1`)).json.order.status).toBe('pending_payment');
+    a.purchase.status = 'paid';
+    expect((await a.c.req('GET', `/api/orders/${a.orderId}?check=1`)).json.order.status).toBe('active');
+    const b = await chipSetup();
+    expect((await b.c.req('POST', `/api/orders/${b.orderId}/cancel`)).status).toBe(200);
+    expect(b.purchase.status).toBe('cancelled');
   });
 });
 
@@ -524,8 +556,8 @@ describe('mod production', () => {
     const { app, env } = makeApp(
       proxy,
       {
-        APP_ENV: 'staging', APP_BASE_URL: 'http://localhost:5173', SMS_PROVIDER: 'onlinesim', PAYMENT_PROVIDER: 'toyyibpay',
-        ONLINESIM_API_KEY: 'k', TOYYIBPAY_SECRET_KEY: 's', TOYYIBPAY_CATEGORY_CODE: 'c',
+        APP_ENV: 'staging', APP_BASE_URL: 'http://localhost:5173', SMS_PROVIDER: 'onlinesim', PAYMENT_PROVIDER: 'chip',
+        ONLINESIM_API_KEY: 'k', CHIP_SECRET_KEY: 's', CHIP_BRAND_ID: BRAND_ID,
       },
       { sms: () => fakeSms },
     );

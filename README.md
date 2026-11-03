@@ -1,9 +1,9 @@
 # MHM SMS
 
-Website MHM CENTER untuk menjual servis **penerimaan SMS (activation jangka pendek)** melalui OnlineSIM API, dengan harga markup dalam RM dan bayaran per pesanan (ToyyibPay).
+Website MHM CENTER untuk menjual servis **penerimaan SMS (activation jangka pendek)** melalui OnlineSIM API, dengan harga markup dalam RM dan bayaran per pesanan (CHIP Collect).
 
 > **Status:** versi demo berfungsi sepenuhnya dengan adapter **mock** (nombor, SMS dan pembayaran simulasi, dilabel DEMO).
-> Adapter OnlineSIM dan ToyyibPay sebenar sudah ditulis dan diuji dengan respons tiruan, tetapi **belum diuji dengan akaun sebenar**.
+> Adapter OnlineSIM dan CHIP sebenar sudah ditulis dan diuji dengan respons tiruan, tetapi **belum diuji dengan akaun sebenar**.
 > Pembelian dan bayaran sebenar **OFF** secara lalai.
 
 ## Kandungan
@@ -29,7 +29,7 @@ Pelayar ──► Cloudflare Pages  (sms.mhmacademy.site)
                                                                               ├─ D1 (DB)
                                                                               ├─ Cron setiap minit
                                                                               ├─ OnlineSIM API
-                                                                              └─ ToyyibPay API
+                                                                              └─ CHIP Collect API
 ```
 
 - `/api/*` dihantar oleh Pages Function ke Worker melalui Service Binding, jadi cookie sesi kekal **same-origin** dan tiada CORS.
@@ -92,7 +92,7 @@ npm run check
 - 8 request `attemptPurchase` serentak → pembekal dipanggil **sekali**.
 - Timeout pembekal → `needs_reconciliation`, tiada retry automatik, tiada refund sehingga admin mengesahkan.
 - Pembekal menolak (`NO_NUMBER`) → `purchase_failed` + **satu** permohonan refund (pending).
-- Hash callback ToyyibPay tidak sah ditolak; payload "berjaya" tidak dipercayai tanpa `getBillTransactions`; amaun atau rujukan tidak sepadan ditolak.
+- CHIP: tandatangan `X-Signature` RSA sebenar disahkan (badan diubah / tandatangan palsu ditolak, kunci diputar diambil semula); payload "paid" tidak dipercayai tanpa `GET /purchases/{id}/`; amaun, rujukan, mata wang, brand atau pembelian ujian dalam production ditolak; callback berulang/serentak → satu pembelian.
 - Bayaran lewat, pembatalan sebelum/selepas guard interval, tamat tempoh tanpa SMS.
 - Pelanggan biasa ditolak (403) di semua endpoint admin; admin tidak melihat kandungan OTP.
 - Production menolak konfigurasi mock; mock + sebenar tidak boleh bercampur; live OFF secara lalai.
@@ -107,17 +107,17 @@ Nama sahaja disenaraikan dalam `.env.example` dan `worker/.dev.vars.example`. Pe
 | `APP_ENV` | var | `development` \| `demo` \| `staging` \| `production`. Mock hanya dibenarkan dalam `development`/`demo`. |
 | `APP_BASE_URL` | var | URL awam, cth. `https://sms.mhmacademy.site` (wajib https dalam production). Digunakan untuk URL return/callback. |
 | `SMS_PROVIDER` | var | `mock` \| `onlinesim` |
-| `PAYMENT_PROVIDER` | var | `mock` \| `toyyibpay` (mesti sepadan: kedua-dua mock atau kedua-dua sebenar) |
+| `PAYMENT_PROVIDER` | var | `mock` \| `chip` (mesti sepadan: kedua-dua mock atau kedua-dua sebenar) |
 | `LIVE_PURCHASES_ENABLED` | var | `true` untuk membenarkan `getNum` sebenar. Lalai `false`. |
-| `LIVE_PAYMENTS_ENABLED` | var | `true` untuk membenarkan bil ToyyibPay sebenar. Lalai `false`. |
+| `LIVE_PAYMENTS_ENABLED` | var | `true` untuk membenarkan purchase CHIP sebenar. Lalai `false`. |
 | `ONLINESIM_BASE_URL` | var | `https://onlinesim.io` |
-| `TOYYIBPAY_BASE_URL` | var | `https://dev.toyyibpay.com` (sandbox) atau `https://toyyibpay.com` (production; sandbox ditolak dalam production). |
+| `CHIP_BASE_URL` | var | `https://gate.chip-in.asia/api/v1` (kunci ujian dan live menggunakan URL yang sama; pembelian ujian `is_test` ditolak dalam production). |
 | `EMAIL_PROVIDER` | var | `none` \| `resend` |
 | `SUPPORT_EMAIL`, `SUPPORT_WHATSAPP` | var | Dipaparkan di laman Hubungi. |
 | `ONLINESIM_API_KEY` | **secret** | Kunci API OnlineSIM (Profil → API). Dihantar dalam header `Authorization: Bearer`, tidak dalam URL. |
 | `ONLINESIM_WEBHOOK_TOKEN` | **secret** | Token rawak panjang untuk URL webhook `/api/webhooks/onlinesim/<token>`. |
-| `TOYYIBPAY_SECRET_KEY` | **secret** | User Secret Key ToyyibPay. |
-| `TOYYIBPAY_CATEGORY_CODE` | **secret** | Kod kategori ToyyibPay. |
+| `CHIP_SECRET_KEY` | **secret** | Secret key CHIP Collect (portal → Developers → API keys). Guna kunci **ujian** untuk staging. |
+| `CHIP_BRAND_ID` | **secret** | Brand ID (UUID) daripada portal → Developers → Brands. |
 | `RESEND_API_KEY`, `EMAIL_FROM` | **secret** | Untuk reset kata laluan melalui emel (pilihan). Tanpa ini, reset memaparkan mesej "hubungi support" (tiada kejayaan palsu). |
 
 Tetapkan secret (contoh staging):
@@ -188,14 +188,14 @@ Tiada kata laluan admin lalai dan pengguna tidak boleh memilih peranan semasa da
 - [ ] Akaun OnlineSIM: API diaktifkan (Profil → API), **IP allowlist** dikonfigurasi atau dimatikan. Worker Cloudflare tidak mempunyai IP keluar tetap, jadi allowlist IP mungkin menyebabkan `API_ACCESS_IP`.
 - [ ] `ONLINESIM_API_KEY`, `ONLINESIM_WEBHOOK_TOKEN`; tetapkan URL webhook di profil OnlineSIM ke `https://sms.mhmacademy.site/api/webhooks/onlinesim/<token>` (pilihan — polling sudah mencukupi).
 - [ ] Sahkan mata wang profil OnlineSIM (harga `getTariffs` diandaikan dalam mata wang ini; lalai USD) dan tetapkan kadar tukaran manual di admin.
-- [ ] ToyyibPay: `TOYYIBPAY_SECRET_KEY`, `TOYYIBPAY_CATEGORY_CODE` — uji dahulu di sandbox (`dev.toyyibpay.com`) dalam staging.
-- [ ] **Sahkan dalam sandbox** format `billpaymentAmount` daripada `getBillTransactions` (dokumentasi menunjukkan `"10.00"`; kod menganggap RM dua tempat perpuluhan dan menolak bayaran jika tidak sepadan dengan amaun pesanan).
+- [ ] CHIP: `CHIP_SECRET_KEY` (kunci **ujian** dahulu dalam staging) dan `CHIP_BRAND_ID`. Bayar ujian dengan kad `4444 3333 2222 1111`, CVC `123`, tarikh luput akan datang (dokumentasi CHIP).
+- [ ] Sahkan dalam staging bahawa `success_callback` sampai dan tandatangan `X-Signature` disahkan (lihat jadual `payment_callbacks`, `signature_valid = 1`).
 - [ ] Pilihan: `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM` untuk reset kata laluan.
 - [ ] `SUPPORT_EMAIL` / `SUPPORT_WHATSAPP`.
 
 **Ujian staging dengan akaun sebenar (amaun kecil):**
 
-- [ ] `LIVE_PAYMENTS_ENABLED=true` dengan sandbox ToyyibPay; uji bayar berjaya, gagal, callback berulang.
+- [ ] `LIVE_PAYMENTS_ENABLED=true` dengan kunci ujian CHIP; uji bayar berjaya, gagal, batal, callback berulang.
 - [ ] `LIVE_PURCHASES_ENABLED=true`; buat satu pembelian sebenar, sahkan `getState` dan `setOperationOk` (selesai & batal selepas guard interval).
 - [ ] Semak katalog sebenar: servis kewangan disembunyikan (kata kunci + toggle servis). Senarai rasmi servis yang tidak disokong ada dalam Lampiran 1 Offer OnlineSIM — semak dan nyahaktifkan servis berkaitan di admin.
 
@@ -203,7 +203,7 @@ Tiada kata laluan admin lalai dan pengguna tidak boleh memilih peranan semasa da
 
 - [ ] Semak dan muktamadkan draf Terma, Privasi dan Polisi Refund (ditanda "draf" di laman).
 - [ ] Tetapkan markup, caj tetap, harga minimum.
-- [ ] Prosedur refund manual (ToyyibPay tiada API refund yang digunakan di sini; refund dipulangkan secara manual dan direkod dengan rujukan transaksi).
+- [ ] Prosedur refund manual. CHIP ada `POST /purchases/{id}/refund/`, tetapi versi ini **tidak** memanggilnya secara automatik; refund diproses oleh admin (di portal CHIP atau pindahan bank) dan direkod dengan rujukan transaksi.
 
 ## Reka bentuk transaksi
 
@@ -224,7 +224,7 @@ pending_payment ─► paid ─► purchasing ─► active ─► completed | e
 
 Semua peralihan ialah `UPDATE … WHERE id = ? AND status = ?` (compare-and-set) dan direkod dalam `order_events`.
 
-**Pembayaran:** callback/redirect/cron hanyalah *isyarat*. Server memanggil `getBillTransactions` dan mengesahkan status `1`, `billExternalReferenceNo` = rujukan pesanan, dan amaun = harga pesanan. `payments.status → 'paid'` dibuat secara bersyarat, jadi callback berulang tidak memberi kesan. Redirect pelanggan tidak dianggap bukti bayaran.
+**Pembayaran (CHIP):** callback/redirect/cron hanyalah *isyarat*. Callback mesti mempunyai `X-Signature` yang sah (RSA PKCS#1 v1.5 + SHA-256 atas badan mentah, kunci daripada `GET /public_key/`). Kemudian server memanggil `GET /purchases/{id}/` dan mengesahkan status `paid`/`cleared`/`settled`, `reference` = rujukan pesanan, `purchase.total` = harga pesanan (sen), mata wang `MYR`, `brand_id`, dan bukan pembelian ujian dalam production. Status `refunded`/`chargeback` memerlukan semakan admin. `payments.status → 'paid'` dibuat secara bersyarat, jadi callback berulang tidak memberi kesan. Redirect pelanggan tidak dianggap bukti bayaran.
 
 **Pembelian:** hanya request yang berjaya menukar `paid → purchasing` memanggil `getNum`. Timeout/ralat tidak pasti → `needs_reconciliation`; **tiada retry automatik** dan **tiada refund** selagi status pembekal tidak diketahui. Cron menukar `purchasing` yang tersekat > 2 minit kepada `needs_reconciliation`. Admin boleh melihat operasi aktif pembekal (`getState`) untuk memadankan tzid.
 
@@ -252,7 +252,7 @@ Dibaca semasa pembangunan (3 Nov 2026):
 - OnlineSIM API v1.1 — https://onlinesim.io/openapi_docs/Onlinesim-API-UN/info/ (`getTariffs`, `getNum`, `getState`, `setOperationOk`, `getBalance`, webhook `newSms`, kod ralat)
 - OnlineSIM Offer — https://onlinesim.io/documentation/offer (Lampiran 1: penghantar yang tidak disokong termasuk bank/pembayaran; tiada jaminan penghantaran)
 - OnlineSIM Refund Policy — https://onlinesim.io/documentation/refund (refund tidak automatik; tiada refund untuk hasil rangkaian seperti SMS tidak sampai)
-- ToyyibPay API — https://toyyibpay.com/apireference/ (`createBill`, callback + hash, `getBillTransactions`, `inactiveBill`)
+- CHIP Collect API — https://docs.chip-in.asia/openapi/chip-collect.yaml (`POST /purchases/`, `GET /purchases/{id}/`, `POST /purchases/{id}/cancel/`, `GET /public_key/`, pengesahan `X-Signature`, status Purchase)
 - Cloudflare Pages Functions bindings & Workers limits — https://developers.cloudflare.com/pages/functions/bindings/, https://developers.cloudflare.com/workers/platform/limits/
 
 Batasan: OnlineSIM tidak mendokumenkan semakan pesanan mengikut rujukan luaran, jadi pesanan yang timeout memerlukan semakan admin. Sewaan jangka panjang dan sambungan sewaan **belum dibina** (fasa seterusnya) dan tidak dipaparkan kepada pelanggan.
