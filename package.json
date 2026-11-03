@@ -4,19 +4,24 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "setup": "npm run db:migrate:local && npm run db:seed:local",
     "dev:api": "wrangler dev -c worker/wrangler.toml --port 8787",
     "dev:web": "vite --config web/vite.config.ts",
     "db:migrate:local": "wrangler d1 migrations apply DB --local -c worker/wrangler.toml",
     "db:seed:local": "wrangler d1 execute DB --local -c worker/wrangler.toml --file=seed/demo.sql",
     "build": "vite build --config web/vite.config.ts",
     "preview:web": "vite preview --config web/vite.config.ts --port 4173",
-    "typecheck": "tsc -p worker/tsconfig.json --noEmit && tsc -p web/tsconfig.json --noEmit && tsc -p tests/tsconfig.json --noEmit",
+    "typecheck": "tsc -p worker/tsconfig.json --noEmit && tsc -p web/tsconfig.json --noEmit && tsc -p tests/tsconfig.json --noEmit && tsc -p web/functions/tsconfig.json --noEmit",
     "test": "vitest run",
     "check": "npm run typecheck && npm test && npm run build",
     "bootstrap-admin": "node scripts/bootstrap-admin.mjs",
     "deploy:api:staging": "wrangler deploy -c worker/wrangler.toml --env staging",
     "deploy:api:production": "wrangler deploy -c worker/wrangler.toml --env production",
-    "deploy:web": "npm run build && wrangler pages deploy web/dist --project-name mhm-sms --cwd web"
+    "deploy:web": "npm run build && wrangler pages deploy dist --project-name mhm-sms --branch production --cwd web",
+    "db:migrate:staging": "wrangler d1 migrations apply DB --remote -c worker/wrangler.toml --env staging",
+    "db:migrate:production": "wrangler d1 migrations apply DB --remote -c worker/wrangler.toml --env production",
+    "deploy:web:preview": "npm run build && wrangler pages deploy dist --project-name mhm-sms --branch preview --cwd web"
   },
   "dependencies": {
     "hono": "^4.13.16",
@@ -34,5 +39,8 @@
     "vite": "^8.3.5",
     "vitest": "^5.1.0",
     "wrangler": "^4.156.2"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
