@@ -107,6 +107,23 @@ describe('konfigurasi mod', () => {
     expect(r.ok).toBe(false);
     expect(r.errors.length).toBe(2);
   });
+  it('staging: SMS simulasi + CHIP dibenarkan sebagai mod UJIAN sahaja', () => {
+    const r = loadConfig({ DB, APP_ENV: 'staging', APP_BASE_URL: 'https://s.example', SMS_PROVIDER: 'mock', PAYMENT_PROVIDER: 'chip', CHIP_SECRET_KEY: 'k', CHIP_BRAND_ID: BRAND_ID, LIVE_PAYMENTS_ENABLED: 'true' });
+    expect(r.ok).toBe(true);
+    expect(r.config.chipTestOnly).toBe(true);
+    expect(r.config.mode).toBe('demo');
+    expect(r.config.paymentsEnabled).toBe(true);
+    // Tanpa LIVE_PAYMENTS_ENABLED, CHIP tidak dipanggil
+    expect(loadConfig({ DB, APP_ENV: 'staging', APP_BASE_URL: 'https://s.example', SMS_PROVIDER: 'mock', PAYMENT_PROVIDER: 'chip', CHIP_SECRET_KEY: 'k', CHIP_BRAND_ID: BRAND_ID }).config.paymentsEnabled).toBe(false);
+  });
+  it('campuran SMS simulasi + CHIP ditolak di luar staging; bayaran mock + SMS sebenar sentiasa ditolak', () => {
+    for (const APP_ENV of ['production', 'demo', 'development']) {
+      const r = loadConfig({ DB, APP_ENV, APP_BASE_URL: 'https://s.example', SMS_PROVIDER: 'mock', PAYMENT_PROVIDER: 'chip', CHIP_SECRET_KEY: 'k', CHIP_BRAND_ID: BRAND_ID });
+      expect(r.ok).toBe(false);
+      expect(r.config.chipTestOnly).toBe(false);
+    }
+    expect(loadConfig({ DB, APP_ENV: 'staging', APP_BASE_URL: 'https://s.example', SMS_PROVIDER: 'onlinesim', PAYMENT_PROVIDER: 'mock', ONLINESIM_API_KEY: 'k' }).ok).toBe(false);
+  });
   it('production tanpa secrets ditolak', () => {
     const r = loadConfig({ DB, APP_ENV: 'production', APP_BASE_URL: 'https://x.y', SMS_PROVIDER: 'onlinesim', PAYMENT_PROVIDER: 'chip' });
     expect(r.ok).toBe(false);
@@ -241,6 +258,33 @@ describe('adapter CHIP', () => {
     expect(newFx.calls.filter((c) => c.path === '/public_key/').length).toBe(1);
     // Tandatangan daripada kunci yang tidak sah lagi tetap ditolak
     expect((await p2.verifyCallback({ rawBody: body, headers: new Headers({ 'X-Signature': await oldFx.sign(body) }) })).valid).toBe(false);
+  });
+
+  it('mod UJIAN sahaja: kunci live -> bil dibatalkan & ditolak; pembelian live tidak diterima', async () => {
+    const fx = await makeChipFixture();
+    const p = new ChipProvider('S', BRAND_ID, { fetchImpl: fx.fetchImpl, publicKeyPem: fx.publicKeyPem, requireTestPurchases: true });
+    const input = { orderRef: 'MHM4', amountSen: 200, title: 't', description: 'd', customerEmail: 'a@b.my', customerName: 'A', dueAt: Date.now(), returnUrl: 'https://r', callbackUrl: 'https://c' };
+    // Pembelian ujian (fixture lalai is_test=true) diterima
+    const ok = await p.createBill(input);
+    fx.purchases.get(ok.billCode)!.status = 'paid';
+    expect((await p.fetchStatus(ok.billCode)).status).toBe('paid');
+    // Pembelian yang ditanda live tidak diterima
+    fx.purchases.get(ok.billCode)!.is_test = false;
+    expect(await p.fetchStatus(ok.billCode)).toEqual({ status: 'unknown', code: 'LIVE_PURCHASE_IN_TEST_MODE' });
+    // Kunci live: CHIP memulangkan is_test=false semasa cipta -> dibatalkan serta-merta
+    const liveFetch = (async (url: string, init: RequestInit = {}) => {
+      const res = await fx.fetchImpl(url, init);
+      if ((init.method ?? 'GET') === 'POST' && new URL(url).pathname.endsWith('/purchases/')) {
+        const body = (await res.json()) as { id: string };
+        fx.purchases.get(body.id)!.is_test = false;
+        return new Response(JSON.stringify(fx.purchases.get(body.id)), { status: 201 });
+      }
+      return res;
+    }) as unknown as typeof fetch;
+    const live = new ChipProvider('S', BRAND_ID, { fetchImpl: liveFetch, publicKeyPem: fx.publicKeyPem, requireTestPurchases: true });
+    await expect(live.createBill(input)).rejects.toMatchObject({ code: 'LIVE_KEY_IN_TEST_MODE' });
+    const last = [...fx.purchases.values()].pop()!;
+    expect(last.status).toBe('cancelled');
   });
 
   it('deactivateBill memanggil /purchases/{id}/cancel/', async () => {

@@ -12,4 +12,4 @@ service = "mhm-sms-api"
 # Preview deployments -> Worker staging
 [[env.preview.services]]
 binding = "API"
-service = "mhm-sms-api-staging"
+service = "mhm-sms-staging"

@@ -38,6 +38,7 @@ export function buildCtx(env: Env, deps: Deps = {}): AppCtx {
       ? new ChipProvider(env.CHIP_SECRET_KEY ?? '', env.CHIP_BRAND_ID ?? '', {
           baseUrl: env.CHIP_BASE_URL || 'https://gate.chip-in.asia/api/v1',
           rejectTestPurchases: config.appEnv === 'production',
+          requireTestPurchases: config.chipTestOnly,
         })
       : new MockPaymentProvider(env.DB, config.baseUrl, now));
   const email = config.emailEnabled ? new ResendEmailProvider(env.RESEND_API_KEY!, env.EMAIL_FROM!) : null;

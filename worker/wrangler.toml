@@ -30,20 +30,28 @@ crons = ["* * * * *"]
 [observability]
 enabled = true
 
-# ---------------------------------------------------------------- staging
+# ---------------------------------------------------------------- staging (CHIP mod UJIAN)
+# Satu Worker menyajikan frontend + /api di https://mhm-sms-staging.marketerhubmy.workers.dev
+# Nombor/SMS SIMULASI + CHIP dengan kunci UJIAN sahaja (kod membatalkan/menolak bil bukan ujian).
+# Secrets: CHIP_SECRET_KEY (kunci ujian), CHIP_BRAND_ID  ->  wrangler secret put <NAMA> -c worker/wrangler.toml --env staging
 [env.staging]
-name = "mhm-sms-api-staging"
+name = "mhm-sms-staging"
+workers_dev = true
 [env.staging.vars]
 APP_ENV = "staging"
-APP_BASE_URL = "https://staging.sms.mhmacademy.site"
-SMS_PROVIDER = "onlinesim"
+APP_BASE_URL = "https://mhm-sms-staging.marketerhubmy.workers.dev"
+SMS_PROVIDER = "mock"
 PAYMENT_PROVIDER = "chip"
-ONLINESIM_BASE_URL = "https://onlinesim.io"
-CHIP_BASE_URL = "https://gate.chip-in.asia/api/v1"  # kunci ujian CHIP (is_test) untuk staging
+CHIP_BASE_URL = "https://gate.chip-in.asia/api/v1"
 LIVE_PURCHASES_ENABLED = "false"
-LIVE_PAYMENTS_ENABLED = "false"
+LIVE_PAYMENTS_ENABLED = "true"  # selamat: chipTestOnly memaksa is_test=true
 EMAIL_PROVIDER = "none"
 SUPPORT_EMAIL = "support@mhmacademy.site"
+EXTRA_ALLOWED_ORIGINS = ""
+[env.staging.assets]
+directory = "../web/dist"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
 [[env.staging.d1_databases]]
 binding = "DB"
 database_name = "mhm-sms-staging"

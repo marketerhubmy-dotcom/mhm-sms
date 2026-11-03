@@ -471,6 +471,51 @@ describe('CHIP melalui endpoint callback', () => {
   });
 });
 
+describe('staging: SMS simulasi + CHIP mod ujian', () => {
+  it('aliran penuh: pesanan -> CHIP ujian dibayar -> callback bertandatangan -> nombor simulasi -> SMS simulasi', async () => {
+    const clock = new Clock();
+    const fx = await makeChipFixture();
+    const sms = new CountingSms(proxy.env.DB, clock.now);
+    const { app, env } = makeApp(
+      proxy,
+      { APP_ENV: 'staging', SMS_PROVIDER: 'mock', PAYMENT_PROVIDER: 'chip', CHIP_SECRET_KEY: 'test_key', CHIP_BRAND_ID: BRAND_ID, LIVE_PAYMENTS_ENABLED: 'true' },
+      { now: clock.now, sms: () => sms, payment: () => new ChipProvider('test_key', BRAND_ID, { fetchImpl: fx.fetchImpl, publicKeyPem: fx.publicKeyPem, requireTestPurchases: true }) },
+    );
+    const c = new Client(app, env);
+    const health = await c.req('GET', '/api/health');
+    expect(health.json).toMatchObject({ ok: true, env: 'staging', payment: 'chip-test' });
+    expect((await c.req('GET', '/api/config')).json.paymentMode).toBe('test');
+    await c.register();
+    const price = await getPrice(c);
+    const r = await c.req('POST', '/api/orders', { countryCode: 60, serviceSlug: 'telegram', expectedPriceSen: price });
+    expect(r.status).toBe(201);
+    const orderId = r.json.order.id;
+    const billCode = (await proxy.env.DB.prepare('SELECT bill_code FROM payments WHERE order_id = ?').bind(orderId).first<{ bill_code: string }>())!.bill_code;
+    // Laluan bayaran demo (mock) tidak wujud dalam staging
+    expect((await c.req('POST', `/api/demo/payments/${billCode}`, { outcome: 'paid' })).status).toBe(404);
+    fx.purchases.get(billCode)!.status = 'paid';
+    const body = JSON.stringify({ id: billCode, status: 'paid' });
+    const res = await app.fetch(new Request('http://localhost:5173/api/payments/chip/callback', { method: 'POST', headers: { 'X-Signature': await fx.sign(body) }, body }), env);
+    expect(res.status).toBe(200);
+    let o = await c.req('GET', `/api/orders/${orderId}`);
+    expect(o.json.order.status).toBe('active');
+    expect(o.json.order.mode).toBe('demo');
+    expect((await c.req('POST', `/api/orders/${orderId}/demo-sms`)).status).toBe(200);
+    o = await c.req('GET', `/api/orders/${orderId}`);
+    expect(o.json.order.smsCount).toBe(1);
+    expect(sms.buyCalls).toBe(1);
+  });
+
+  it('staging tanpa secrets CHIP: /api/health menunjukkan nama ralat, API lain 503', async () => {
+    const { app, env } = makeApp(proxy, { APP_ENV: 'staging', SMS_PROVIDER: 'mock', PAYMENT_PROVIDER: 'chip', LIVE_PAYMENTS_ENABLED: 'true' });
+    const c = new Client(app, env);
+    const h = await c.req('GET', '/api/health');
+    expect(h.json.ok).toBe(false);
+    expect(h.json.configErrors.join()).toMatch(/CHIP_SECRET_KEY/);
+    expect((await c.req('GET', '/api/catalog/countries')).status).toBe(503);
+  });
+});
+
 describe('admin', () => {
   it('pelanggan biasa ditolak daripada semua endpoint admin', async () => {
     const { app, env } = setup();

@@ -6,13 +6,21 @@ export const publicRoutes = new Hono<HonoEnv>();
 
 publicRoutes.get('/health', (c) => {
   const app = c.get('app');
-  return c.json({ ok: app.configErrors.length === 0, mode: app.config.mode, env: app.config.appEnv });
+  return c.json({
+    ok: app.configErrors.length === 0,
+    mode: app.config.mode,
+    env: app.config.appEnv,
+    payment: app.config.paymentProvider === 'mock' ? 'simulated' : app.config.chipTestOnly ? 'chip-test' : 'chip',
+    // Nama masalah konfigurasi (tiada nilai rahsia) dipaparkan di luar production untuk memudahkan persediaan.
+    ...(app.config.appEnv !== 'production' && app.configErrors.length ? { configErrors: app.configErrors } : {}),
+  });
 });
 
 publicRoutes.get('/config', (c) => {
   const app = c.get('app');
   return c.json({
     mode: app.config.mode,
+    paymentMode: app.config.paymentProvider === 'mock' ? 'simulated' : app.config.chipTestOnly ? 'test' : 'live',
     salesOpen: app.config.purchasesEnabled && app.config.paymentsEnabled,
     passwordResetAvailable: !!app.email,
     supportEmail: app.env.SUPPORT_EMAIL ?? null,

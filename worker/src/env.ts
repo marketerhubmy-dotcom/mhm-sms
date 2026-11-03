@@ -35,6 +35,8 @@ export interface AppConfig {
   allowedOrigins: string[];
   pbkdf2Iterations: number;
   emailEnabled: boolean;
+  /** Staging: SMS simulasi + CHIP. Hanya pembelian CHIP UJIAN (is_test) dibenarkan. */
+  chipTestOnly: boolean;
 }
 
 export interface ConfigResult {
@@ -71,10 +73,13 @@ export function loadConfig(env: Env): ConfigResult {
   if (pay !== 'mock' && pay !== 'chip') errors.push('PAYMENT_PROVIDER tidak sah');
 
   const anyMock = smsProvider === 'mock' || paymentProvider === 'mock';
-  if (anyMock && !MOCK_ALLOWED.includes(appEnv)) {
+  // Pengecualian tunggal: staging boleh guna SMS simulasi + CHIP, tetapi HANYA mod ujian CHIP
+  // (dikuatkuasakan oleh adapter: bil bukan ujian dibatalkan & tidak diterima).
+  const chipTestOnly = appEnv === 'staging' && smsProvider === 'mock' && paymentProvider === 'chip';
+  if (anyMock && !MOCK_ALLOWED.includes(appEnv) && !chipTestOnly) {
     errors.push(`Adapter mock tidak dibenarkan dalam APP_ENV=${appEnv}`);
   }
-  if ((smsProvider === 'mock') !== (paymentProvider === 'mock')) {
+  if ((smsProvider === 'mock') !== (paymentProvider === 'mock') && !chipTestOnly) {
     errors.push('Mod mock dan sebenar tidak boleh bercampur (SMS_PROVIDER dan PAYMENT_PROVIDER)');
   }
   if (smsProvider === 'onlinesim' && !env.ONLINESIM_API_KEY) errors.push('ONLINESIM_API_KEY belum ditetapkan');
@@ -106,12 +111,13 @@ export function loadConfig(env: Env): ConfigResult {
       smsProvider,
       paymentProvider,
       purchasesEnabled: anyMock ? true : flag(env.LIVE_PURCHASES_ENABLED),
-      paymentsEnabled: anyMock ? true : flag(env.LIVE_PAYMENTS_ENABLED),
+      paymentsEnabled: paymentProvider === 'mock' ? true : flag(env.LIVE_PAYMENTS_ENABLED),
       baseUrl,
       secureCookies: baseUrl.startsWith('https://'),
       allowedOrigins,
       pbkdf2Iterations,
       emailEnabled: (env.EMAIL_PROVIDER ?? 'none') === 'resend' && !!env.RESEND_API_KEY && !!env.EMAIL_FROM,
+      chipTestOnly,
     },
   };
 }

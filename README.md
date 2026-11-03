@@ -170,6 +170,10 @@ Persekitaran demo awam (pilihan): tetapkan `APP_ENV=demo` dengan D1 berasingan; 
 
 Persekitaran `demo` dalam `worker/wrangler.toml` ialah **satu Worker** yang menyajikan frontend (`web/dist`) dan `/api` pada URL yang sama (`https://mhm-sms-demo.<subdomain>.workers.dev`). Mock dipaksa (`APP_ENV=demo`), tiada secrets diperlukan, dan D1 `mhm-sms-demo` diasingkan daripada staging/production. Langkah penuh: lihat `docs/DEMO-DEPLOY.md`.
 
+## Staging CHIP (mod ujian)
+
+Persekitaran `staging` menggabungkan nombor/SMS **simulasi** dengan **CHIP mod ujian** (kunci ujian sahaja; kunci live ditolak oleh kod). URL `https://mhm-sms-staging.marketerhubmy.workers.dev`. Lihat `docs/STAGING-CHIP.md`.
+
 ## Bootstrap admin
 
 Tiada kata laluan admin lalai dan pengguna tidak boleh memilih peranan semasa daftar.

@@ -101,6 +101,9 @@ export function fmtDuration(ms: number): string {
 export function DemoRibbon() {
   const { config } = useSession();
   if (config?.mode !== 'demo') return null;
+  if (config.paymentMode === 'test') {
+    return <div className="demo-ribbon">STAGING — nombor & SMS SIMULASI. Pembayaran melalui CHIP mod UJIAN (guna kad ujian sahaja). Tiada caj sebenar.</div>;
+  }
   return <div className="demo-ribbon">DEMO — data, nombor, SMS dan pembayaran di laman ini adalah SIMULASI. Tiada caj sebenar.</div>;
 }
 

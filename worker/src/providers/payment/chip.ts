@@ -47,6 +47,8 @@ export class ChipProvider implements PaymentProvider {
       baseUrl?: string;
       /** Tolak objek ujian (is_test=true) — wajib dalam production. */
       rejectTestPurchases?: boolean;
+      /** Terima HANYA objek ujian (is_test=true) — untuk staging dengan nombor simulasi. */
+      requireTestPurchases?: boolean;
       fetchImpl?: typeof fetch;
       timeoutMs?: number;
       /** Untuk ujian: PEM kunci awam tetap (tanpa memanggil /public_key/). */
@@ -111,6 +113,11 @@ export class ChipProvider implements PaymentProvider {
     const p = (json ?? {}) as Record<string, unknown>;
     if (status !== 201 && status !== 200) throw new PaymentProviderError(`HTTP_${status}`);
     if (typeof p.id !== 'string' || typeof p.checkout_url !== 'string') throw new PaymentProviderError('CREATE_PURCHASE_FAILED');
+    if (this.opts.requireTestPurchases && p.is_test !== true) {
+      // Kunci LIVE dipasang dalam mod ujian: batalkan supaya halaman bayaran sebenar tidak boleh dibayar.
+      await this.deactivateBill(p.id);
+      throw new PaymentProviderError('LIVE_KEY_IN_TEST_MODE');
+    }
     return { billCode: p.id, paymentUrl: p.checkout_url };
   }
 
@@ -170,6 +177,7 @@ export class ChipProvider implements PaymentProvider {
     if (p.id !== billCode) return { status: 'unknown', code: 'ID_MISMATCH' };
     if (p.brand_id != null && p.brand_id !== this.brandId) return { status: 'unknown', code: 'BRAND_MISMATCH' };
     if (this.opts.rejectTestPurchases && p.is_test === true) return { status: 'unknown', code: 'TEST_PURCHASE' };
+    if (this.opts.requireTestPurchases && p.is_test !== true) return { status: 'unknown', code: 'LIVE_PURCHASE_IN_TEST_MODE' };
     const st = String(p.status ?? '');
     if (PAID.has(st)) {
       const purchase = (p.purchase ?? {}) as Record<string, unknown>;

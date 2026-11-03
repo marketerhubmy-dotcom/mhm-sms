@@ -16,7 +16,7 @@
     "test": "vitest run",
     "check": "npm run typecheck && npm test && npm run build",
     "bootstrap-admin": "node scripts/bootstrap-admin.mjs",
-    "deploy:api:staging": "wrangler deploy -c worker/wrangler.toml --env staging",
+    "deploy:api:staging": "npm run build && wrangler deploy -c worker/wrangler.toml --env staging",
     "deploy:api:production": "wrangler deploy -c worker/wrangler.toml --env production",
     "deploy:web": "npm run build && wrangler pages deploy dist --project-name mhm-sms --branch production --cwd web",
     "db:migrate:staging": "wrangler d1 migrations apply DB --remote -c worker/wrangler.toml --env staging",
