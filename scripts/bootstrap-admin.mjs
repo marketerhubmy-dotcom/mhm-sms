@@ -7,6 +7,15 @@
  *    (memerlukan akses akaun Cloudflare anda) dan merekod audit log.
  */
 import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+// Jalankan Wrangler terus melalui Node (tiada shell) supaya berfungsi di Windows, macOS dan Linux.
+const wranglerBin = fileURLToPath(new URL('../node_modules/wrangler/bin/wrangler.js', import.meta.url));
+if (!existsSync(wranglerBin)) {
+  console.error('Wrangler tidak dijumpai. Jalankan `npm install` dalam folder repo dahulu.');
+  process.exit(1);
+}
 
 const args = Object.fromEntries(
   process.argv.slice(2).reduce((acc, a, i, arr) => (a.startsWith('--') ? [...acc, [a.slice(2), arr[i + 1]]] : acc), []),
@@ -29,9 +38,9 @@ const sql = [
   `DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE email = '${email}');`,
   `SELECT email, role FROM users WHERE email = '${email}';`,
 ].join(' ');
-const base = ['wrangler', 'd1', 'execute', 'DB', '-c', 'worker/wrangler.toml', '--command', sql];
+const base = [wranglerBin, 'd1', 'execute', 'DB', '-c', 'worker/wrangler.toml', '--json', '--command', sql];
 const extra = target === 'local' ? ['--local'] : ['--remote', '--env', target];
-const out = execFileSync('npx', [...base, ...extra], { encoding: 'utf8', stdio: ['inherit', 'pipe', 'inherit'] });
+const out = execFileSync(process.execPath, [...base, ...extra], { encoding: 'utf8', stdio: ['inherit', 'pipe', 'inherit'] });
 if (!/"role":\s*"admin"/.test(out)) {
   console.error('Akaun tidak dijumpai. Daftar akaun dengan emel ini dahulu, kemudian jalankan semula.');
   process.exit(1);
