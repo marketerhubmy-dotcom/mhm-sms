@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { AppError, listCountries, listServices } from '../services/catalog';
-import type { HonoEnv } from '../http';
+import { clientIp, enforceRateLimit, type HonoEnv } from '../http';
 
 export const publicRoutes = new Hono<HonoEnv>();
 
@@ -14,6 +14,35 @@ publicRoutes.get('/health', (c) => {
     // Nama masalah konfigurasi (tiada nilai rahsia) dipaparkan di luar production untuk memudahkan persediaan.
     ...(app.config.appEnv !== 'production' && app.configErrors.length ? { configErrors: app.configErrors } : {}),
   });
+});
+
+/**
+ * Diagnostik sambungan Worker -> CHIP (BUKAN production). Melaporkan kod HTTP & masa sahaja.
+ * 200 = boleh dicapai & kunci sah; 401/403 = boleh dicapai tetapi kunci/akses tidak sah; TIMEOUT/NETWORK_ERROR = tidak dapat dicapai.
+ */
+publicRoutes.get('/health/chip', async (c) => {
+  const app = c.get('app');
+  if (app.config.appEnv === 'production' || app.config.paymentProvider !== 'chip') throw new AppError('NOT_FOUND', 404, 'Tidak dijumpai.');
+  await enforceRateLimit(c, `chip-probe:${clientIp(c)}`, 10, 10 * 60_000);
+  const base = (app.env.CHIP_BASE_URL || 'https://gate.chip-in.asia/api/v1').replace(/\/+$/, '');
+  const probe = async (withKey: boolean) => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 25_000);
+    const started = Date.now();
+    try {
+      const res = await fetch(`${base}/public_key/`, {
+        headers: { Accept: 'application/json', ...(withKey ? { Authorization: `Bearer ${app.env.CHIP_SECRET_KEY ?? ''}` } : {}) },
+        signal: ctrl.signal,
+      });
+      await res.arrayBuffer();
+      return { http: res.status, ms: Date.now() - started };
+    } catch (e) {
+      return { error: (e as Error)?.name === 'AbortError' ? 'TIMEOUT' : 'NETWORK_ERROR', ms: Date.now() - started };
+    } finally {
+      clearTimeout(t);
+    }
+  };
+  return c.json({ withoutKey: await probe(false), withKey: await probe(true) });
 });
 
 publicRoutes.get('/config', (c) => {
