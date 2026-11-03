@@ -418,7 +418,8 @@ export async function refreshOrder(ctx: AppCtx, orderId: string, opts: { force?:
     await closeLocally(ctx, orderId, order.sms_count, 'Operasi tidak lagi aktif di pembekal');
     return;
   }
-  const interval = Math.min(MAX_POLL_INTERVAL_S, Math.ceil(order.poll_interval_s * 2));
+  // Ralat sementara (cth. TIMEOUT): cuba semula cepat kerana masa nombor terhad; jangan backoff panjang.
+  const interval = Math.min(15, Math.max(5, order.poll_interval_s));
   await ctx.db
     .prepare('UPDATE orders SET poll_interval_s = ?, next_poll_at = ?, last_error_code = ?, updated_at = ? WHERE id = ?')
     .bind(interval, t + interval * 1000, op.code, t, orderId)

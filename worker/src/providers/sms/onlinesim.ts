@@ -28,11 +28,11 @@ export class OnlineSimProvider implements SmsProvider {
     private fetchImpl: typeof fetch = (...a) => fetch(...a),
   ) {}
 
-  private async call(path: string, params: Record<string, string | number>): Promise<unknown> {
+  private async call(path: string, params: Record<string, string | number>, timeoutMs?: number): Promise<unknown> {
     const url = new URL(path, this.baseUrl);
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), this.timeoutMs);
+    const t = setTimeout(() => ctrl.abort(), timeoutMs ?? this.timeoutMs);
     let res: Response;
     try {
       res = await this.fetchImpl(url.toString(), {
@@ -184,7 +184,8 @@ export class OnlineSimProvider implements SmsProvider {
   async getOperation(tzid: string): Promise<OperationResult> {
     let body: unknown;
     try {
-      body = await this.call('/api/getState.php', { tzid, message_to_code: 0, msg_list: 1, orderby: 'asc', lang: 'en' });
+      // Polling SMS: had masa pendek; jika tergantung, polling seterusnya akan mencuba semula tidak lama lagi.
+      body = await this.call('/api/getState.php', { tzid, message_to_code: 0, msg_list: 1, orderby: 'asc', lang: 'en' }, 8_000);
     } catch (e) {
       return { kind: 'error', code: e instanceof ProviderError ? e.code : 'UNKNOWN' };
     }
