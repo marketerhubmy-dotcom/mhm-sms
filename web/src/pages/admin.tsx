@@ -259,6 +259,33 @@ const PROVIDER_STATUS_MS: Record<string, string> = {
   ERROR_NO_ITEMS: 'Operasi gagal / nombor tidak dikeluarkan',
 };
 
+function DiagnoseState({ orderId }: { orderId: string }) {
+  const [rows, setRows] = useState<any[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  return (
+    <div className="stack">
+      <button className="btn btn-ghost btn-sm" disabled={busy} onClick={async () => {
+        setBusy(true); setErr('');
+        try { setRows((await api<any>(`/admin/orders/${orderId}/provider-diagnose`, { method: 'POST' })).results); }
+        catch (e) { setErr(e instanceof ApiError ? e.message : 'Gagal'); }
+        finally { setBusy(false); }
+      }}>{busy ? 'Mendiagnosis… (sehingga ~50 s)' : 'Diagnosis getState (variasi parameter)'}</button>
+      {err && <div className="alert alert-error small">{err}</div>}
+      {rows && (
+        <div className="table-wrap"><table>
+          <thead><tr><th>Variasi</th><th>Hasil</th><th>Butiran</th><th className="num">ms</th></tr></thead>
+          <tbody>{rows.map((r) => (
+            <tr key={r.label}><td className="small">{r.label}</td><td className="mono small">{r.result}</td>
+              <td className="small mono">{r.result === 'ok' ? `ops=${r.operations} found=${r.found} status=${r.status ?? '-'} sms=${r.messages ?? '-'}` : r.code}</td>
+              <td className="num">{r.ms}</td></tr>
+          ))}</tbody>
+        </table></div>
+      )}
+    </div>
+  );
+}
+
 function ProviderCheck({ orderId, onSynced }: { orderId: string; onSynced: () => void }) {
   const [res, setRes] = useState<any>(null);
   const [err, setErr] = useState('');
@@ -302,6 +329,7 @@ function ProviderCheck({ orderId, onSynced }: { orderId: string; onSynced: () =>
             </tbody>
           </table></div>
           <div className="small muted">Disemak {dt(res.checkedAt)} · {res.ms} ms</div>
+          {res.consistent === null && <DiagnoseState orderId={orderId} />}
           {res.consistent === false && <div><button className="btn btn-navy btn-sm" onClick={async () => { await api(`/admin/orders/${orderId}/provider-sync`, { method: 'POST' }); onSynced(); await run(); }}>Segerak sekarang</button></div>}
         </>
       )}

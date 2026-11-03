@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { microsToDecimal } from '../lib/money';
+import { OnlineSimProvider } from '../providers/sms/onlinesim';
 import { STATUS_LABEL_MS } from '../lib/orderState';
 import { audit } from '../services/audit';
 import { AppError, listCountries, listServices } from '../services/catalog';
@@ -130,6 +131,19 @@ adminRoutes.post('/orders/:id/provider-check', async (c) => {
     now: app.now(),
   });
   return c.json({ tzid: o.provider_tzid, provider, local, consistent, checkedAt: app.now(), ms: app.now() - started });
+});
+
+/** Diagnostik getState OnlineSIM (variasi parameter). Tiada kandungan SMS. */
+adminRoutes.post('/orders/:id/provider-diagnose', async (c) => {
+  const app = c.get('app');
+  const admin = c.get('user')!;
+  await enforceRateLimit(c, `provider-diagnose:${admin.id}`, 5, 60_000);
+  const o = await getOrder(app.db, c.req.param('id'));
+  if (!o?.provider_tzid) throw new AppError('NO_OPERATION', 409, 'Pesanan ini tiada operasi pembekal.');
+  if (!(app.sms instanceof OnlineSimProvider)) throw new AppError('NOT_SUPPORTED', 409, 'Diagnostik hanya untuk OnlineSIM.');
+  const results = await app.sms.diagnoseState(o.provider_tzid);
+  await audit(app.db, { actor: admin.id, action: 'order.provider_diagnose', targetType: 'order', targetId: o.id, details: results.map((r) => ({ l: r.label.slice(0, 12), r: r.result, ms: r.ms })), now: app.now() });
+  return c.json({ tzid: o.provider_tzid, results });
 });
 
 /** Paksa satu polling melalui laluan biasa (refreshOrder) untuk menyegerakkan SMS/status daripada pembekal. */

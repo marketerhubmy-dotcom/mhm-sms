@@ -204,6 +204,39 @@ export class OnlineSimProvider implements SmsProvider {
     };
   }
 
+  /**
+   * Diagnostik: cuba beberapa variasi parameter getState yang didokumenkan dan laporkan masa/hasil.
+   * Tiada kandungan SMS dipulangkan.
+   */
+  async diagnoseState(tzid: string, timeoutMs = 12_000) {
+    const variants: [string, Record<string, string | number>][] = [
+      ['semasa (tzid+message_to_code=0+msg_list=1+orderby+lang)', { tzid, message_to_code: 0, msg_list: 1, orderby: 'asc', lang: 'en' }],
+      ['tzid sahaja', { tzid }],
+      ['tzid+message_to_code=1', { tzid, message_to_code: 1 }],
+      ['tanpa tzid (semua operasi)', { message_to_code: 1 }],
+    ];
+    const out = [];
+    for (const [label, params] of variants) {
+      const started = Date.now();
+      const saved = this.timeoutMs;
+      this.timeoutMs = timeoutMs;
+      try {
+        const body = await this.call('/api/getState.php', params);
+        const ops = OnlineSimProvider.parseOps(body);
+        if (!Array.isArray(ops)) out.push({ label, result: 'error_code', code: ops.error, ms: Date.now() - started });
+        else {
+          const op = ops.find((o) => String(o.tzid) === String(tzid));
+          out.push({ label, result: 'ok', operations: ops.length, found: !!op, status: op ? String(op.response ?? '') : null, messages: op ? OnlineSimProvider.messagesOf(op).length : null, ms: Date.now() - started });
+        }
+      } catch (e) {
+        out.push({ label, result: 'exception', code: e instanceof ProviderError ? e.code : 'UNKNOWN', ms: Date.now() - started });
+      } finally {
+        this.timeoutMs = saved;
+      }
+    }
+    return out;
+  }
+
   async listOperations(): Promise<ProviderOperationSummary[] | null> {
     let body: unknown;
     try {
