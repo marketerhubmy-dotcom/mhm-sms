@@ -3,7 +3,7 @@ import { ChipProvider } from '../worker/src/providers/payment/chip';
 import { BRAND_ID, makeChipFixture } from './chipFixture';
 import { MockPaymentProvider } from '../worker/src/providers/payment/mock';
 import { MockSmsProvider } from '../worker/src/providers/sms/mock';
-import type { BuyResult, SmsProvider } from '../worker/src/providers/sms/types';
+import { ProviderError, type BuyResult, type SmsProvider } from '../worker/src/providers/sms/types';
 import { buildCtx } from '../worker/src/services/context';
 import { runScheduled } from '../worker/src/services/cron';
 import { attemptPurchase, processPaymentSignal } from '../worker/src/services/orders';
@@ -582,6 +582,45 @@ describe('cache katalog', () => {
     expect(left?.n).toBe(0);
     // Kembali ke mock untuk ujian lain
     await new Client(app, env).req('GET', '/api/catalog/countries');
+  });
+});
+
+describe('semakan stok sebelum pesanan', () => {
+  it('guna katalog ≤60s tanpa panggilan semula; selepas 60s ambil semula; ralat pembekal -> 503 dengan kod & audit', async () => {
+    const clock = new Clock(Date.UTC(2027, 1, 1));
+    class FlakySms extends CountingSms {
+      serviceCalls = 0;
+      failWith: string | null = null;
+      async getServices(code: number) {
+        this.serviceCalls++;
+        if (this.failWith) throw new ProviderError(this.failWith);
+        return super.getServices(code);
+      }
+    }
+    const sms = new FlakySms(proxy.env.DB, clock.now);
+    const { app, env } = makeApp(proxy, {}, { now: clock.now, sms: () => sms });
+    const c = new Client(app, env);
+    await c.register();
+    await c.req('GET', '/api/catalog/countries'); // pastikan cache untuk pembekal ini
+    const price = await getPrice(c, 62, 'telegram');
+    const before = sms.serviceCalls;
+    clock.advance(20_000);
+    const r1 = await c.req('POST', '/api/orders', { countryCode: 62, serviceSlug: 'telegram', expectedPriceSen: price });
+    expect(r1.status).toBe(201);
+    expect(sms.serviceCalls).toBe(before); // data 20s: tiada panggilan baharu
+    await c.req('POST', `/api/orders/${r1.json.order.id}/cancel`);
+    clock.advance(61_000);
+    sms.failWith = 'INTERVAL_CONCURRENT_REQUESTS_ERROR';
+    const r2 = await c.req('POST', '/api/orders', { countryCode: 62, serviceSlug: 'telegram', expectedPriceSen: price });
+    expect(r2.status).toBe(503);
+    expect(r2.json.error.providerCode).toBe('INTERVAL_CONCURRENT_REQUESTS_ERROR');
+    expect(r2.json.error.message).toMatch(/INTERVAL_CONCURRENT_REQUESTS_ERROR/);
+    const logged = await proxy.env.DB.prepare("SELECT COUNT(*) AS n FROM audit_logs WHERE action = 'provider.catalog_error'").first<{ n: number }>();
+    expect(logged!.n).toBeGreaterThan(0);
+    sms.failWith = null;
+    const r3 = await c.req('POST', '/api/orders', { countryCode: 62, serviceSlug: 'telegram', expectedPriceSen: price });
+    expect(r3.status).toBe(201);
+    expect(sms.serviceCalls).toBe(before + 2);
   });
 });
 

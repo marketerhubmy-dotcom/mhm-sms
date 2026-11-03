@@ -157,7 +157,8 @@ export async function createOrder(
 
   const settings = await getSettings(ctx.db);
   // Semakan segar (bukan cache) stok & harga sebelum pesanan disahkan.
-  const { services } = await listServices(ctx, input.countryCode, { force: true, settings });
+  // Semakan stok & harga terkini: data katalog mesti berusia ≤ 60 s (elak had kekerapan API pembekal).
+  const { services } = await listServices(ctx, input.countryCode, { maxAgeMs: 60_000, settings });
   const svc = services.find((s) => s.slug === input.serviceSlug);
   if (!svc) throw new AppError('SERVICE_UNAVAILABLE', 400, 'Servis ini tidak tersedia untuk negara yang dipilih.');
   if (svc.stock <= 0) throw new AppError('OUT_OF_STOCK', 409, 'Stok nombor untuk pilihan ini telah habis. Cuba negara lain atau sebentar lagi.');

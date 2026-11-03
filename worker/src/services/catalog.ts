@@ -1,5 +1,6 @@
 import { computePrice } from '../lib/money';
 import { ProviderError } from '../providers/sms/types';
+import { audit } from './audit';
 import type { AppCtx } from './context';
 import { getMeta, getSettings, intSetting, pricingFrom, setMeta, type Settings } from './settings';
 
@@ -110,19 +111,33 @@ async function refreshServices(ctx: AppCtx, countryCode: number, ttlMs: number, 
 export async function listServices(
   ctx: AppCtx,
   countryCode: number,
-  opts: { includeHidden?: boolean; force?: boolean; settings?: Settings } = {},
+  opts: {
+    includeHidden?: boolean;
+    /** Sentiasa ambil semula daripada pembekal (admin). */
+    force?: boolean;
+    /** Semakan ketat sebelum pesanan: data mesti tidak lebih tua daripada ini; jika gagal diambil, ralat. */
+    maxAgeMs?: number;
+    settings?: Settings;
+  } = {},
 ): Promise<{ services: ServiceRow[]; stale: boolean; fetchedAt: number | null }> {
   await ensureCatalogProvider(ctx);
   const settings = opts.settings ?? (await getSettings(ctx.db));
-  const ttlMs = intSetting(settings, 'catalog_ttl_seconds') * 1000;
+  const ttlMs = opts.maxAgeMs ?? intSetting(settings, 'catalog_ttl_seconds') * 1000;
+  const strict = !!opts.force || opts.maxAgeMs != null;
   let stale = false;
   try {
     await refreshServices(ctx, countryCode, ttlMs, !!opts.force);
   } catch (e) {
-    if (opts.force) {
-      throw new AppError('PROVIDER_UNAVAILABLE', 503, 'Stok dan harga tidak dapat disahkan buat masa ini. Sila cuba sebentar lagi.', {
-        providerCode: e instanceof ProviderError ? e.code : 'UNKNOWN',
-      });
+    if (strict) {
+      const providerCode = e instanceof ProviderError ? e.code : 'UNKNOWN';
+      console.error('Katalog pembekal gagal dimuat:', providerCode);
+      await audit(ctx.db, { actor: null, action: 'provider.catalog_error', targetType: 'country', targetId: String(countryCode), details: { code: providerCode }, now: ctx.now() });
+      throw new AppError(
+        'PROVIDER_UNAVAILABLE',
+        503,
+        'Stok dan harga tidak dapat disahkan buat masa ini. Sila cuba sebentar lagi.' + (ctx.config.appEnv !== 'production' ? ` (${providerCode})` : ''),
+        { providerCode },
+      );
     }
     stale = true;
   }
