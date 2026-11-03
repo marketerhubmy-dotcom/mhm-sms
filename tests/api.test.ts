@@ -544,6 +544,33 @@ describe('staging: SMS simulasi + CHIP mod ujian', () => {
   });
 });
 
+describe('cache katalog', () => {
+  it('pertukaran pembekal SMS mengosongkan cache negara/servis lama', async () => {
+    const { app, env } = setup();
+    const c = new Client(app, env);
+    expect((await c.req('GET', '/api/catalog/countries')).json.countries.some((x: any) => x.name === 'Malaysia')).toBe(true);
+    await c.req('GET', '/api/catalog/countries/60/services');
+    const other = {
+      name: 'onlinesim' as const,
+      getCountries: async () => [{ code: 7, name: 'Russia', enabled: true }],
+      getServices: async () => [{ slug: 'vkcom', name: 'VKontakte', stock: 5, costMicros: 550_000 }],
+      getBalance: async () => ({ balanceMicros: 1, frozenMicros: 0 }),
+      buyNumber: async () => ({ kind: 'rejected' as const, code: 'NO_NUMBER' }),
+      getOperation: async () => ({ kind: 'not_found' as const }),
+      listOperations: async () => [],
+      completeOperation: async () => ({ kind: 'ok' as const }),
+    };
+    const { app: app2, env: env2 } = makeApp(proxy, {}, { sms: () => other });
+    const c2 = new Client(app2, env2);
+    const countries = (await c2.req('GET', '/api/catalog/countries')).json.countries;
+    expect(countries).toEqual([{ code: 7, name: 'Russia' }]);
+    const left = await proxy.env.DB.prepare('SELECT COUNT(*) AS n FROM catalog_services WHERE country_code = 60').first<{ n: number }>();
+    expect(left?.n).toBe(0);
+    // Kembali ke mock untuk ujian lain
+    await new Client(app, env).req('GET', '/api/catalog/countries');
+  });
+});
+
 describe('admin', () => {
   it('pelanggan biasa ditolak daripada semua endpoint admin', async () => {
     const { app, env } = setup();

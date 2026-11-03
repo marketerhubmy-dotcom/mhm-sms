@@ -40,17 +40,35 @@ export function isBlockedService(slug: string, name: string, keywords: string): 
     .some((k) => new RegExp(`(^|[^a-z])${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(hay));
 }
 
+/** Kosongkan cache katalog jika pembekal SMS bertukar (cth. mock -> onlinesim). */
+export async function ensureCatalogProvider(ctx: AppCtx): Promise<void> {
+  const meta = await getMeta(ctx.db, 'catalog_provider');
+  if (meta?.value === ctx.sms.name) return;
+  await ctx.db.batch([
+    ctx.db.prepare('DELETE FROM catalog_services'),
+    ctx.db.prepare('DELETE FROM catalog_countries'),
+    ctx.db.prepare("DELETE FROM meta WHERE key = 'catalog_countries_at' OR substr(key, 1, 20) = 'catalog_services_at:'"),
+  ]);
+  await setMeta(ctx.db, 'catalog_provider', ctx.sms.name, ctx.now());
+}
+
 export async function refreshCountries(ctx: AppCtx, force = false): Promise<void> {
+  await ensureCatalogProvider(ctx);
   const meta = await getMeta(ctx.db, 'catalog_countries_at');
   if (!force && meta && ctx.now() - meta.updated_at < COUNTRY_TTL_MS) return;
   const countries = await ctx.sms.getCountries();
   const now = ctx.now();
-  const stmts = countries.map((c) =>
+  const keep = countries.map((c) => c.code);
+  const stmts = [
+    // Buang negara yang tiada lagi di pembekal.
+    ctx.db.prepare(`DELETE FROM catalog_countries WHERE code NOT IN (${keep.map(() => '?').join(',') || 'NULL'})`).bind(...keep),
+    ...countries.map((c) =>
     ctx.db
       .prepare('INSERT INTO catalog_countries (code, name, provider_enabled, fetched_at) VALUES (?, ?, ?, ?) ON CONFLICT(code) DO UPDATE SET name = excluded.name, provider_enabled = excluded.provider_enabled, fetched_at = excluded.fetched_at')
       .bind(c.code, c.name, c.enabled ? 1 : 0, now),
-  );
-  if (stmts.length) await ctx.db.batch(stmts);
+    ),
+  ];
+  await ctx.db.batch(stmts);
   await setMeta(ctx.db, 'catalog_countries_at', String(now), now);
 }
 
@@ -94,6 +112,7 @@ export async function listServices(
   countryCode: number,
   opts: { includeHidden?: boolean; force?: boolean; settings?: Settings } = {},
 ): Promise<{ services: ServiceRow[]; stale: boolean; fetchedAt: number | null }> {
+  await ensureCatalogProvider(ctx);
   const settings = opts.settings ?? (await getSettings(ctx.db));
   const ttlMs = intSetting(settings, 'catalog_ttl_seconds') * 1000;
   let stale = false;
