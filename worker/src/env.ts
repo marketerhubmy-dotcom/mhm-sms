@@ -35,8 +35,10 @@ export interface AppConfig {
   allowedOrigins: string[];
   pbkdf2Iterations: number;
   emailEnabled: boolean;
-  /** Staging: SMS simulasi + CHIP. Hanya pembelian CHIP UJIAN (is_test) dibenarkan. */
+  /** Staging + CHIP: HANYA pembelian CHIP UJIAN (is_test) dibenarkan, sama ada nombor simulasi atau sebenar. */
   chipTestOnly: boolean;
+  /** Staging + OnlineSIM sebenar: nombor sebenar (kos sebenar) — hanya admin, dengan had harian. */
+  stagingRealNumbers: boolean;
 }
 
 export interface ConfigResult {
@@ -75,11 +77,13 @@ export function loadConfig(env: Env): ConfigResult {
   const anyMock = smsProvider === 'mock' || paymentProvider === 'mock';
   // Pengecualian tunggal: staging boleh guna SMS simulasi + CHIP, tetapi HANYA mod ujian CHIP
   // (dikuatkuasakan oleh adapter: bil bukan ujian dibatalkan & tidak diterima).
-  const chipTestOnly = appEnv === 'staging' && smsProvider === 'mock' && paymentProvider === 'chip';
-  if (anyMock && !MOCK_ALLOWED.includes(appEnv) && !chipTestOnly) {
+  const chipTestOnly = appEnv === 'staging' && paymentProvider === 'chip';
+  // Satu-satunya campuran dibenarkan: staging dengan SMS simulasi + CHIP ujian.
+  const stagingMockSms = chipTestOnly && smsProvider === 'mock';
+  if (anyMock && !MOCK_ALLOWED.includes(appEnv) && !stagingMockSms) {
     errors.push(`Adapter mock tidak dibenarkan dalam APP_ENV=${appEnv}`);
   }
-  if ((smsProvider === 'mock') !== (paymentProvider === 'mock') && !chipTestOnly) {
+  if ((smsProvider === 'mock') !== (paymentProvider === 'mock') && !stagingMockSms) {
     errors.push('Mod mock dan sebenar tidak boleh bercampur (SMS_PROVIDER dan PAYMENT_PROVIDER)');
   }
   if (smsProvider === 'onlinesim' && !env.ONLINESIM_API_KEY) errors.push('ONLINESIM_API_KEY belum ditetapkan');
@@ -118,6 +122,7 @@ export function loadConfig(env: Env): ConfigResult {
       pbkdf2Iterations,
       emailEnabled: (env.EMAIL_PROVIDER ?? 'none') === 'resend' && !!env.RESEND_API_KEY && !!env.EMAIL_FROM,
       chipTestOnly,
+      stagingRealNumbers: appEnv === 'staging' && smsProvider === 'onlinesim',
     },
   };
 }

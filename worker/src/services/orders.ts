@@ -121,13 +121,26 @@ export async function getProviderBalance(ctx: AppCtx, maxAgeMs = 5 * 60_000): Pr
   }
 }
 
+export const STAGING_REAL_DAILY_LIMIT = 5;
+
 export async function createOrder(
   ctx: AppCtx,
-  user: { id: string; email: string; name: string },
+  user: { id: string; email: string; name: string; role?: string },
   input: { countryCode: number; serviceSlug: string; expectedPriceSen?: number },
 ): Promise<{ order: OrderRow; paymentUrl: string }> {
   if (!ctx.config.purchasesEnabled || !ctx.config.paymentsEnabled) {
     throw new AppError('SALES_DISABLED', 503, 'Pembelian belum dibuka buat masa ini. Sila cuba lagi kemudian.');
+  }
+  if (ctx.config.stagingRealNumbers) {
+    // Staging dengan nombor OnlineSIM SEBENAR: kos sebenar kepada MHM, jadi hanya admin & dihadkan sehari.
+    if (user.role !== 'admin') throw new AppError('STAGING_ADMIN_ONLY', 403, 'Staging: pembelian nombor sebenar hanya untuk admin.');
+    const today = await ctx.db
+      .prepare('SELECT COUNT(*) AS n FROM orders WHERE created_at > ?')
+      .bind(ctx.now() - 86_400_000)
+      .first<{ n: number }>();
+    if ((today?.n ?? 0) >= STAGING_REAL_DAILY_LIMIT) {
+      throw new AppError('STAGING_DAILY_LIMIT', 429, `Staging: had ${STAGING_REAL_DAILY_LIMIT} pesanan sehari telah dicapai.`);
+    }
   }
   const country = await isCountryAvailable(ctx, input.countryCode);
   if (!country) throw new AppError('COUNTRY_UNAVAILABLE', 400, 'Negara ini tidak tersedia.');

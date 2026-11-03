@@ -32,18 +32,20 @@ enabled = true
 
 # ---------------------------------------------------------------- staging (CHIP mod UJIAN)
 # Satu Worker menyajikan frontend + /api di https://mhm-sms-staging.marketerhubmy.workers.dev
-# Nombor/SMS SIMULASI + CHIP dengan kunci UJIAN sahaja (kod membatalkan/menolak bil bukan ujian).
-# Secrets: CHIP_SECRET_KEY (kunci ujian), CHIP_BRAND_ID  ->  wrangler secret put <NAMA> -c worker/wrangler.toml --env staging
+# Nombor OnlineSIM SEBENAR (admin sahaja, had 5/hari) + CHIP dengan kunci UJIAN sahaja (kod menolak bil bukan ujian).
+# Untuk kembali ke nombor simulasi: SMS_PROVIDER = "mock".
+# Secrets: CHIP_SECRET_KEY (kunci ujian), CHIP_BRAND_ID, ONLINESIM_API_KEY  ->  wrangler secret put <NAMA> -c worker/wrangler.toml --env staging
 [env.staging]
 name = "mhm-sms-staging"
 workers_dev = true
 [env.staging.vars]
 APP_ENV = "staging"
 APP_BASE_URL = "https://mhm-sms-staging.marketerhubmy.workers.dev"
-SMS_PROVIDER = "mock"
+SMS_PROVIDER = "onlinesim"
+ONLINESIM_BASE_URL = "https://onlinesim.io"
 PAYMENT_PROVIDER = "chip"
 CHIP_BASE_URL = "https://gate.chip-in.asia/api/v1"
-LIVE_PURCHASES_ENABLED = "false"
+LIVE_PURCHASES_ENABLED = "true"  # staging: admin sahaja, had 5 pesanan/hari (dikuatkuasakan kod)
 LIVE_PAYMENTS_ENABLED = "true"  # selamat: chipTestOnly memaksa is_test=true
 EMAIL_PROVIDER = "none"
 SUPPORT_EMAIL = "support@mhmacademy.site"

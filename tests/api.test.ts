@@ -506,6 +506,34 @@ describe('staging: SMS simulasi + CHIP mod ujian', () => {
     expect(sms.buyCalls).toBe(1);
   });
 
+  it('staging nombor SEBENAR: pelanggan biasa ditolak, admin dibenarkan, had harian dikuatkuasakan', async () => {
+    const clock = new Clock(Date.UTC(2027, 0, 1));
+    const fx = await makeChipFixture();
+    const sms = new CountingSms(proxy.env.DB, clock.now);
+    const { app, env } = makeApp(
+      proxy,
+      { APP_ENV: 'staging', SMS_PROVIDER: 'onlinesim', ONLINESIM_API_KEY: 'k', PAYMENT_PROVIDER: 'chip', CHIP_SECRET_KEY: 'k', CHIP_BRAND_ID: BRAND_ID, LIVE_PAYMENTS_ENABLED: 'true', LIVE_PURCHASES_ENABLED: 'true' },
+      { now: clock.now, sms: () => sms, payment: () => new ChipProvider('k', BRAND_ID, { fetchImpl: fx.fetchImpl, publicKeyPem: fx.publicKeyPem, requireTestPurchases: true }) },
+    );
+    const cust = new Client(app, env);
+    await cust.register();
+    expect((await cust.req('GET', '/api/config')).json.stage).toBe('staging-real');
+    const price = await getPrice(cust);
+    const denied = await cust.req('POST', '/api/orders', { countryCode: 60, serviceSlug: 'telegram', expectedPriceSen: price });
+    expect(denied.status).toBe(403);
+    expect(denied.json.error.code).toBe('STAGING_ADMIN_ONLY');
+    const { client: admin } = await createAdmin(proxy, app, env);
+    const codes: number[] = [];
+    for (let i = 0; i < 7; i++) {
+      const r = await admin.req('POST', '/api/orders', { countryCode: 60, serviceSlug: 'telegram', expectedPriceSen: price });
+      codes.push(r.status);
+      if (r.status === 201) await admin.req('POST', `/api/orders/${r.json.order.id}/cancel`);
+    }
+    expect(codes.filter((x) => x === 201).length).toBe(5);
+    expect(codes.slice(5)).toEqual([429, 429]);
+    expect(sms.buyCalls).toBe(0); // tiada pembelian tanpa bayaran disahkan
+  });
+
   it('staging tanpa secrets CHIP: /api/health menunjukkan nama ralat, API lain 503', async () => {
     const { app, env } = makeApp(proxy, { APP_ENV: 'staging', SMS_PROVIDER: 'mock', PAYMENT_PROVIDER: 'chip', LIVE_PAYMENTS_ENABLED: 'true' });
     const c = new Client(app, env);

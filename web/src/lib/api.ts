@@ -88,6 +88,7 @@ export interface User {
 export interface PublicConfig {
   mode: 'demo' | 'live';
   paymentMode: 'simulated' | 'test' | 'live';
+  stage: 'staging' | 'staging-real' | null;
   salesOpen: boolean;
   passwordResetAvailable: boolean;
   supportEmail: string | null;

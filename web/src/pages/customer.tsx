@@ -87,7 +87,7 @@ export function BuyNumber() {
               <button className="btn btn-primary btn-block" disabled={!agree || busy || !config?.salesOpen} onClick={confirm}>
                 {busy ? 'Menyediakan pembayaran…' : `Sahkan & Bayar ${rm(sel.service.priceSen)}`}
               </button>
-              {config?.mode === 'demo' && (
+              {(config?.mode === 'demo' || config?.paymentMode === 'test') && (
                 <div className="small center muted">
                   <span className="demo-tag">{config.paymentMode === 'test' ? 'UJIAN' : 'DEMO'}</span>{' '}
                   {config.paymentMode === 'test' ? 'Halaman CHIP mod ujian: guna kad 4444 3333 2222 1111, CVC 123.' : 'Pembayaran akan disimulasikan.'}

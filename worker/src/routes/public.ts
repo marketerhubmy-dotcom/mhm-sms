@@ -11,6 +11,7 @@ publicRoutes.get('/health', (c) => {
     mode: app.config.mode,
     env: app.config.appEnv,
     payment: app.config.paymentProvider === 'mock' ? 'simulated' : app.config.chipTestOnly ? 'chip-test' : 'chip',
+    numbers: app.config.smsProvider === 'mock' ? 'simulated' : 'onlinesim',
     // Nama masalah konfigurasi (tiada nilai rahsia) dipaparkan di luar production untuk memudahkan persediaan.
     ...(app.config.appEnv !== 'production' && app.configErrors.length ? { configErrors: app.configErrors } : {}),
   });
@@ -45,11 +46,26 @@ publicRoutes.get('/health/chip', async (c) => {
   return c.json({ withoutKey: await probe(false), withKey: await probe(true) });
 });
 
+/** Diagnostik OnlineSIM (BUKAN production): kod status sahaja, tiada nilai baki atau kunci. */
+publicRoutes.get('/health/onlinesim', async (c) => {
+  const app = c.get('app');
+  if (app.config.appEnv === 'production' || app.config.smsProvider !== 'onlinesim') throw new AppError('NOT_FOUND', 404, 'Tidak dijumpai.');
+  await enforceRateLimit(c, `osim-probe:${clientIp(c)}`, 10, 10 * 60_000);
+  const started = Date.now();
+  try {
+    await app.sms.getBalance();
+    return c.json({ getBalance: 'ok', ms: Date.now() - started });
+  } catch (e) {
+    return c.json({ getBalance: 'error', code: (e as { code?: string })?.code ?? 'UNKNOWN', ms: Date.now() - started });
+  }
+});
+
 publicRoutes.get('/config', (c) => {
   const app = c.get('app');
   return c.json({
     mode: app.config.mode,
     paymentMode: app.config.paymentProvider === 'mock' ? 'simulated' : app.config.chipTestOnly ? 'test' : 'live',
+    stage: app.config.appEnv === 'staging' ? (app.config.stagingRealNumbers ? 'staging-real' : 'staging') : null,
     salesOpen: app.config.purchasesEnabled && app.config.paymentsEnabled,
     passwordResetAvailable: !!app.email,
     supportEmail: app.env.SUPPORT_EMAIL ?? null,

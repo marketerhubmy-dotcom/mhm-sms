@@ -124,6 +124,16 @@ describe('konfigurasi mod', () => {
     }
     expect(loadConfig({ DB, APP_ENV: 'staging', APP_BASE_URL: 'https://s.example', SMS_PROVIDER: 'onlinesim', PAYMENT_PROVIDER: 'mock', ONLINESIM_API_KEY: 'k' }).ok).toBe(false);
   });
+  it('staging + OnlineSIM sebenar + CHIP: nombor sebenar, bayaran tetap mod ujian sahaja', () => {
+    const r = loadConfig({ DB, APP_ENV: 'staging', APP_BASE_URL: 'https://s.example', SMS_PROVIDER: 'onlinesim', ONLINESIM_API_KEY: 'k', PAYMENT_PROVIDER: 'chip', CHIP_SECRET_KEY: 'k', CHIP_BRAND_ID: BRAND_ID, LIVE_PAYMENTS_ENABLED: 'true', LIVE_PURCHASES_ENABLED: 'true' });
+    expect(r.ok).toBe(true);
+    expect(r.config.chipTestOnly).toBe(true);
+    expect(r.config.stagingRealNumbers).toBe(true);
+    expect(r.config.mode).toBe('live');
+    const prod = loadConfig({ DB, APP_ENV: 'production', APP_BASE_URL: 'https://s.example', SMS_PROVIDER: 'onlinesim', ONLINESIM_API_KEY: 'k', PAYMENT_PROVIDER: 'chip', CHIP_SECRET_KEY: 'k', CHIP_BRAND_ID: BRAND_ID });
+    expect(prod.config.chipTestOnly).toBe(false);
+    expect(prod.config.stagingRealNumbers).toBe(false);
+  });
   it('production tanpa secrets ditolak', () => {
     const r = loadConfig({ DB, APP_ENV: 'production', APP_BASE_URL: 'https://x.y', SMS_PROVIDER: 'onlinesim', PAYMENT_PROVIDER: 'chip' });
     expect(r.ok).toBe(false);

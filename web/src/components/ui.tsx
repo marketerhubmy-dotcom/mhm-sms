@@ -100,6 +100,13 @@ export function fmtDuration(ms: number): string {
 
 export function DemoRibbon() {
   const { config } = useSession();
+  if (config?.stage === 'staging-real') {
+    return (
+      <div className="demo-ribbon">
+        STAGING — nombor OnlineSIM SEBENAR (admin sahaja, kos sebenar kepada MHM). Pembayaran melalui CHIP mod UJIAN; tiada caj kepada pelanggan.
+      </div>
+    );
+  }
   if (config?.mode !== 'demo') return null;
   if (config.paymentMode === 'test') {
     return <div className="demo-ribbon">STAGING — nombor & SMS SIMULASI. Pembayaran melalui CHIP mod UJIAN (guna kad ujian sahaja). Tiada caj sebenar.</div>;
