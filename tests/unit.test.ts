@@ -287,6 +287,15 @@ describe('adapter CHIP', () => {
     expect(last.status).toBe('cancelled');
   });
 
+  it('ralat 400/401 CHIP diringkaskan tanpa nilai sensitif', async () => {
+    expect(ChipProvider.errorSummary({ __all__: { message: 'x', code: 'invalid_brand' } })).toBe(':__all__=invalid_brand');
+    expect(ChipProvider.errorSummary({ purchase: { products: [{ price: [{ message: 'm', code: 'min_value' }] }] } })).toBe(':purchase.products.price=min_value');
+    expect(ChipProvider.errorSummary({ detail: 'Invalid token.' })).toBe(':detail');
+    const f401 = (async () => new Response(JSON.stringify({ detail: 'Invalid token.' }), { status: 401 })) as unknown as typeof fetch;
+    const p = new ChipProvider('S', BRAND_ID, { fetchImpl: f401 });
+    await expect(p.createBill({ orderRef: 'X', amountSen: 200, title: 't', description: 'd', customerEmail: 'a@b.my', customerName: 'A', dueAt: Date.now(), returnUrl: 'https://r', callbackUrl: 'https://c' })).rejects.toMatchObject({ code: 'HTTP_401:detail' });
+  });
+
   it('deactivateBill memanggil /purchases/{id}/cancel/', async () => {
     const fx = await makeChipFixture();
     const p = new ChipProvider('S', BRAND_ID, { fetchImpl: fx.fetchImpl, publicKeyPem: fx.publicKeyPem });

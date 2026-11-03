@@ -98,7 +98,6 @@ export class ChipProvider implements PaymentProvider {
         currency: 'MYR',
         products: [{ name: input.description.slice(0, 256), price: input.amountSen }],
         due_strict: true,
-        language: 'ms',
       },
       reference: input.orderRef,
       due: Math.floor(input.dueAt / 1000),
@@ -111,7 +110,7 @@ export class ChipProvider implements PaymentProvider {
       creator_agent: 'MHM SMS',
     });
     const p = (json ?? {}) as Record<string, unknown>;
-    if (status !== 201 && status !== 200) throw new PaymentProviderError(`HTTP_${status}`);
+    if (status !== 201 && status !== 200) throw new PaymentProviderError(`HTTP_${status}${ChipProvider.errorSummary(json)}`);
     if (typeof p.id !== 'string' || typeof p.checkout_url !== 'string') throw new PaymentProviderError('CREATE_PURCHASE_FAILED');
     if (this.opts.requireTestPurchases && p.is_test !== true) {
       // Kunci LIVE dipasang dalam mod ujian: batalkan supaya halaman bayaran sebenar tidak boleh dibayar.
@@ -119,6 +118,26 @@ export class ChipProvider implements PaymentProvider {
       throw new PaymentProviderError('LIVE_KEY_IN_TEST_MODE');
     }
     return { billCode: p.id, paymentUrl: p.checkout_url };
+  }
+
+  /** Ringkasan ralat CHIP yang selamat dilog: nama medan dan kod ralat sahaja (tiada nilai/secret). */
+  static errorSummary(json: unknown): string {
+    if (!json || typeof json !== 'object') return '';
+    const parts: string[] = [];
+    const walk = (o: unknown, path: string, depth: number) => {
+      if (depth > 3 || parts.length >= 5) return;
+      if (Array.isArray(o)) {
+        for (const x of o) walk(x, path, depth + 1);
+      } else if (o && typeof o === 'object') {
+        const rec = o as Record<string, unknown>;
+        if (typeof rec.code === 'string') parts.push(`${path || '__all__'}=${rec.code}`.slice(0, 80));
+        else for (const [k, v] of Object.entries(rec)) walk(v, path ? `${path}.${k}` : k, depth + 1);
+      } else if (typeof o === 'string' && path) {
+        parts.push(`${path}`.slice(0, 60));
+      }
+    };
+    walk(json, '', 0);
+    return parts.length ? `:${[...new Set(parts)].join(',')}` : '';
   }
 
   private static importKey(pem: string): Promise<CryptoKey> {

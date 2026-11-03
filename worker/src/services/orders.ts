@@ -196,10 +196,18 @@ export async function createOrder(
       returnUrl: `${ctx.config.baseUrl}/bayar/kembali?order=${id}`,
       callbackUrl: `${ctx.config.baseUrl}/api/payments/${ctx.payment.name}/callback`,
     });
-  } catch {
-    await transition(ctx, id, 'pending_payment', 'payment_failed', 'system', 'Bil pembayaran gagal dicipta');
+  } catch (e) {
+    const providerCode = (e as { code?: string })?.code ?? 'UNKNOWN';
+    console.error('Bil pembayaran gagal dicipta:', providerCode);
+    await audit(ctx.db, { actor: null, action: 'payment.create_failed', targetType: 'order', targetId: id, details: { provider: ctx.payment.name, code: providerCode }, now: ctx.now() });
+    await transition(ctx, id, 'pending_payment', 'payment_failed', 'system', `Bil pembayaran gagal dicipta: ${providerCode}`);
     await ctx.db.prepare("UPDATE payments SET status = 'failed', updated_at = ? WHERE id = ?").bind(ctx.now(), paymentId).run();
-    throw new AppError('PAYMENT_PROVIDER_ERROR', 502, 'Halaman pembayaran tidak dapat disediakan. Tiada bayaran dikenakan. Sila cuba lagi.');
+    throw new AppError(
+      'PAYMENT_PROVIDER_ERROR',
+      502,
+      'Halaman pembayaran tidak dapat disediakan. Tiada bayaran dikenakan. Sila cuba lagi.',
+      ctx.config.appEnv !== 'production' ? { providerCode } : undefined,
+    );
   }
   await ctx.db
     .prepare("UPDATE payments SET bill_code = ?, payment_url = ?, status = 'pending', updated_at = ? WHERE id = ?")
