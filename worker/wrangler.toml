@@ -98,7 +98,7 @@ run_worker_first = ["/api/*"]
 [[env.demo.d1_databases]]
 binding = "DB"
 database_name = "mhm-sms-demo"
-database_id = "REPLACE_WITH_DEMO_D1_ID"
+database_id = "7ed93a3a-73f1-4979-92de-32928aced353"
 migrations_dir = "migrations"
 [env.demo.triggers]
 crons = ["* * * * *"]
