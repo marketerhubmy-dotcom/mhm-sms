@@ -64,6 +64,10 @@ export class MockSmsProvider implements SmsProvider {
     return mockServicesFor(countryCode);
   }
 
+  async getServiceQuote(countryCode: number, slug: string) {
+    return (await this.getServices(countryCode)).find((s) => s.slug === slug) ?? null;
+  }
+
   async getBalance(): Promise<BalanceResult> {
     return { balanceMicros: 25_000_000, frozenMicros: 0 };
   }

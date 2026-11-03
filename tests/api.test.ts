@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ChipProvider } from '../worker/src/providers/payment/chip';
 import { BRAND_ID, makeChipFixture } from './chipFixture';
 import { MockPaymentProvider } from '../worker/src/providers/payment/mock';
-import { MockSmsProvider } from '../worker/src/providers/sms/mock';
+import { MockSmsProvider, mockServicesFor } from '../worker/src/providers/sms/mock';
 import { ProviderError, type BuyResult, type SmsProvider } from '../worker/src/providers/sms/types';
 import { buildCtx } from '../worker/src/services/context';
 import { runScheduled } from '../worker/src/services/cron';
@@ -568,6 +568,7 @@ describe('cache katalog', () => {
       name: 'onlinesim' as const,
       getCountries: async () => [{ code: 7, name: 'Russia', enabled: true }],
       getServices: async () => [{ slug: 'vkcom', name: 'VKontakte', stock: 5, costMicros: 550_000 }],
+      getServiceQuote: async () => ({ slug: 'vkcom', name: 'VKontakte', stock: 5, costMicros: 550_000 }),
       getBalance: async () => ({ balanceMicros: 1, frozenMicros: 0 }),
       buyNumber: async () => ({ kind: 'rejected' as const, code: 'NO_NUMBER' }),
       getOperation: async () => ({ kind: 'not_found' as const }),
@@ -596,6 +597,12 @@ describe('semakan stok sebelum pesanan', () => {
         if (this.failWith) throw new ProviderError(this.failWith);
         return super.getServices(code);
       }
+      quoteCalls = 0;
+      async getServiceQuote(code: number, slug: string) {
+        this.quoteCalls++;
+        if (this.failWith) throw new ProviderError(this.failWith);
+        return mockServicesFor(code).find((x) => x.slug === slug) ?? null;
+      }
     }
     const sms = new FlakySms(proxy.env.DB, clock.now);
     const { app, env } = makeApp(proxy, {}, { now: clock.now, sms: () => sms });
@@ -620,7 +627,9 @@ describe('semakan stok sebelum pesanan', () => {
     sms.failWith = null;
     const r3 = await c.req('POST', '/api/orders', { countryCode: 62, serviceSlug: 'telegram', expectedPriceSen: price });
     expect(r3.status).toBe(201);
-    expect(sms.serviceCalls).toBe(before + 2);
+    // Semakan sebelum pesanan hanya mengambil SATU servis, bukan katalog penuh
+    expect(sms.serviceCalls).toBe(before);
+    expect(sms.quoteCalls).toBe(2);
   });
 });
 

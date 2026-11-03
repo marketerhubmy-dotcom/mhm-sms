@@ -364,6 +364,22 @@ describe('adapter OnlineSIM', () => {
     expect(await p.getCountries()).toEqual([{ code: 7, name: 'Russia', enabled: true }]);
     expect(await p.getServices(7)).toEqual([{ slug: 'vkcom', name: 'VKontakte', stock: 3721, costMicros: 550_000 }]);
   });
+  it('getServiceQuote: guna filter_service; jika penapis tidak berkesan -> undefined (guna katalog penuh)', async () => {
+    let url = '';
+    const f = (async (u: string) => {
+      url = u;
+      return new Response(JSON.stringify({ response: '1', countries: {}, services: { _tiktok: { id: 1, count: 9999, price: '0.2', service: 'TikTok', slug: 'tiktok' } }, end: true }));
+    }) as unknown as typeof fetch;
+    const p = new OnlineSimProvider('k', 'https://onlinesim.io', 1000, f);
+    expect(await p.getServiceQuote(44, 'tiktok')).toEqual({ slug: 'tiktok', name: 'TikTok', stock: 9999, costMicros: 200_000 });
+    const q = new URL(url).searchParams;
+    expect(q.get('filter_service')).toBe('tiktok');
+    expect(q.get('country')).toBe('44');
+    const other = new OnlineSimProvider('k', 'https://o', 1000, fetchOf({ response: '1', services: { _vkcom: { count: 1, price: '1', service: 'VK', slug: 'vkcom' } } }));
+    expect(await other.getServiceQuote(44, 'tiktok')).toBeUndefined();
+    await expect(new OnlineSimProvider('k', 'https://o', 1000, fetchOf({ response: 'TRY_AGAIN_LATER' })).getServiceQuote(44, 'tiktok')).rejects.toMatchObject({ code: 'TRY_AGAIN_LATER' });
+  });
+
   it('setOperationOk: NO_COMPLETE_TZID = terlalu awal', async () => {
     expect(await new OnlineSimProvider('k', 'https://o', 1000, fetchOf({ response: 'NO_COMPLETE_TZID' })).completeOperation('1')).toEqual({ kind: 'too_early' });
     expect(await new OnlineSimProvider('k', 'https://o', 1000, fetchOf({ response: 1, tzid: 1 })).completeOperation('1')).toEqual({ kind: 'ok' });

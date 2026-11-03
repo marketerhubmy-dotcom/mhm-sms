@@ -45,6 +45,11 @@ export interface SmsProvider {
   readonly name: 'mock' | 'onlinesim';
   getCountries(): Promise<ProviderCountry[]>;
   getServices(countryCode: number): Promise<ProviderService[]>;
+  /**
+   * Harga & stok untuk SATU servis (lebih pantas daripada katalog penuh).
+   * Pulang null jika servis tiada; undefined jika pembekal tidak dapat menapis (pemanggil guna katalog penuh).
+   */
+  getServiceQuote(countryCode: number, slug: string): Promise<ProviderService | null | undefined>;
   getBalance(): Promise<BalanceResult>;
   buyNumber(input: { countryCode: number; serviceSlug: string }): Promise<BuyResult>;
   getOperation(tzid: string): Promise<OperationResult>;

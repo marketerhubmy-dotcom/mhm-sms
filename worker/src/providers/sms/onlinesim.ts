@@ -24,7 +24,7 @@ export class OnlineSimProvider implements SmsProvider {
   constructor(
     private apiKey: string,
     private baseUrl = 'https://onlinesim.io',
-    private timeoutMs = 10_000,
+    private timeoutMs = 20_000,
     private fetchImpl: typeof fetch = (...a) => fetch(...a),
   ) {}
 
@@ -97,6 +97,32 @@ export class OnlineSimProvider implements SmsProvider {
       if (body.end !== false) break;
     }
     return [...out.values()];
+  }
+
+  async getServiceQuote(countryCode: number, slug: string): Promise<ProviderService | null | undefined> {
+    // getTariffs dengan filter_service: "discards service objects not related to the target one".
+    const body = (await this.call('/api/getTariffs.php', {
+      country: countryCode,
+      filter_country: countryCode,
+      filter_service: slug,
+      lang: 'en',
+    })) as Record<string, unknown>;
+    const err = OnlineSimProvider.errorCode(body);
+    if (err) throw new ProviderError(err);
+    const services = Object.values((body.services ?? {}) as Record<string, { count?: number; price?: string | number; service?: string; slug?: string }>);
+    const s = services.find((x) => x.slug === slug);
+    if (!s) {
+      // Tiada padanan: jika penapis tidak berkesan (banyak servis lain dipulangkan) atau kosong, biar pemanggil guna katalog penuh.
+      return undefined;
+    }
+    if (s.price == null) return null;
+    let costMicros: number;
+    try {
+      costMicros = decimalToMicros(String(s.price));
+    } catch {
+      return undefined;
+    }
+    return { slug, name: String(s.service ?? slug), stock: Number(s.count ?? 0) || 0, costMicros };
   }
 
   async getBalance(): Promise<BalanceResult> {

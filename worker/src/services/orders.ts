@@ -3,7 +3,7 @@ import { senToRm } from '../lib/money';
 import { canTransition, PAYABLE_STATES, refundEligible, type OrderStatus } from '../lib/orderState';
 import type { AppCtx } from './context';
 import { audit } from './audit';
-import { AppError, isCountryAvailable, listServices } from './catalog';
+import { AppError, isCountryAvailable, listServices, verifyServiceQuote } from './catalog';
 import { getMeta, getSettings, intSetting, pricingFrom, setMeta } from './settings';
 
 export interface OrderRow {
@@ -158,7 +158,8 @@ export async function createOrder(
   const settings = await getSettings(ctx.db);
   // Semakan segar (bukan cache) stok & harga sebelum pesanan disahkan.
   // Semakan stok & harga terkini: data katalog mesti berusia ≤ 60 s (elak had kekerapan API pembekal).
-  const { services } = await listServices(ctx, input.countryCode, { maxAgeMs: 60_000, settings });
+  await verifyServiceQuote(ctx, input.countryCode, input.serviceSlug, 60_000, settings);
+  const { services } = await listServices(ctx, input.countryCode, { noRefresh: true, settings });
   const svc = services.find((s) => s.slug === input.serviceSlug);
   if (!svc) throw new AppError('SERVICE_UNAVAILABLE', 400, 'Servis ini tidak tersedia untuk negara yang dipilih.');
   if (svc.stock <= 0) throw new AppError('OUT_OF_STOCK', 409, 'Stok nombor untuk pilihan ini telah habis. Cuba negara lain atau sebentar lagi.');

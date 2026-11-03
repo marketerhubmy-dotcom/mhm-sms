@@ -108,6 +108,54 @@ async function refreshServices(ctx: AppCtx, countryCode: number, ttlMs: number, 
   await setMeta(ctx.db, key, String(now), now);
 }
 
+async function catalogError(ctx: AppCtx, countryCode: number, e: unknown): Promise<AppError> {
+  const providerCode = e instanceof ProviderError ? e.code : 'UNKNOWN';
+  console.error('Katalog pembekal gagal dimuat:', providerCode);
+  await audit(ctx.db, { actor: null, action: 'provider.catalog_error', targetType: 'country', targetId: String(countryCode), details: { code: providerCode }, now: ctx.now() });
+  return new AppError(
+    'PROVIDER_UNAVAILABLE',
+    503,
+    'Stok dan harga tidak dapat disahkan buat masa ini. Sila cuba sebentar lagi.' + (ctx.config.appEnv !== 'production' ? ` (${providerCode})` : ''),
+    { providerCode },
+  );
+}
+
+/**
+ * Semakan ketat SATU servis sebelum pesanan. Guna cache jika berusia ≤ maxAgeMs; jika tidak,
+ * ambil servis itu sahaja (filter_service) dan kemas kini baris cache. Jika pembekal tidak dapat
+ * menapis, kembali kepada katalog penuh negara itu.
+ */
+export async function verifyServiceQuote(ctx: AppCtx, countryCode: number, slug: string, maxAgeMs: number, settings: Settings): Promise<void> {
+  await ensureCatalogProvider(ctx);
+  const row = await ctx.db
+    .prepare('SELECT fetched_at FROM catalog_services WHERE country_code = ? AND slug = ?')
+    .bind(countryCode, slug)
+    .first<{ fetched_at: number }>();
+  if (row && ctx.now() - row.fetched_at <= maxAgeMs) return;
+  let quote;
+  try {
+    quote = await ctx.sms.getServiceQuote(countryCode, slug);
+  } catch (e) {
+    throw await catalogError(ctx, countryCode, e);
+  }
+  if (quote === undefined) {
+    await listServices(ctx, countryCode, { maxAgeMs, settings });
+    return;
+  }
+  const now = ctx.now();
+  if (quote === null) {
+    await ctx.db.prepare('DELETE FROM catalog_services WHERE country_code = ? AND slug = ?').bind(countryCode, slug).run();
+    return;
+  }
+  await ctx.db
+    .prepare(
+      `INSERT INTO catalog_services (country_code, slug, name, stock, cost_micros, fetched_at) VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(country_code, slug) DO UPDATE SET name = excluded.name, stock = excluded.stock, cost_micros = excluded.cost_micros, fetched_at = excluded.fetched_at`,
+    )
+    .bind(countryCode, slug, quote.name, quote.stock, quote.costMicros, now)
+    .run();
+}
+
 export async function listServices(
   ctx: AppCtx,
   countryCode: number,
@@ -117,6 +165,8 @@ export async function listServices(
     force?: boolean;
     /** Semakan ketat sebelum pesanan: data mesti tidak lebih tua daripada ini; jika gagal diambil, ralat. */
     maxAgeMs?: number;
+    /** Jangan cuba menyegarkan daripada pembekal (guna cache sahaja). */
+    noRefresh?: boolean;
     settings?: Settings;
   } = {},
 ): Promise<{ services: ServiceRow[]; stale: boolean; fetchedAt: number | null }> {
@@ -126,19 +176,9 @@ export async function listServices(
   const strict = !!opts.force || opts.maxAgeMs != null;
   let stale = false;
   try {
-    await refreshServices(ctx, countryCode, ttlMs, !!opts.force);
+    if (!opts.noRefresh) await refreshServices(ctx, countryCode, ttlMs, !!opts.force);
   } catch (e) {
-    if (strict) {
-      const providerCode = e instanceof ProviderError ? e.code : 'UNKNOWN';
-      console.error('Katalog pembekal gagal dimuat:', providerCode);
-      await audit(ctx.db, { actor: null, action: 'provider.catalog_error', targetType: 'country', targetId: String(countryCode), details: { code: providerCode }, now: ctx.now() });
-      throw new AppError(
-        'PROVIDER_UNAVAILABLE',
-        503,
-        'Stok dan harga tidak dapat disahkan buat masa ini. Sila cuba sebentar lagi.' + (ctx.config.appEnv !== 'production' ? ` (${providerCode})` : ''),
-        { providerCode },
-      );
-    }
+    if (strict) throw await catalogError(ctx, countryCode, e);
     stale = true;
   }
   const pricing = pricingFrom(settings);
