@@ -55,7 +55,7 @@ run_worker_first = ["/api/*"]
 [[env.staging.d1_databases]]
 binding = "DB"
 database_name = "mhm-sms-staging"
-database_id = "REPLACE_WITH_STAGING_D1_ID"
+database_id = "c6433c7d-b1c2-49a4-86ae-d8c30f0946f3"
 migrations_dir = "migrations"
 [env.staging.triggers]
 crons = ["* * * * *"]
