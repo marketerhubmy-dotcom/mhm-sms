@@ -62,7 +62,7 @@ export class ChipProvider implements PaymentProvider {
 
   private async call(method: 'GET' | 'POST', path: string, body?: unknown): Promise<{ status: number; json: unknown }> {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), this.opts.timeoutMs ?? 15_000);
+    const t = setTimeout(() => ctrl.abort(), this.opts.timeoutMs ?? 30_000);
     const f = this.opts.fetchImpl ?? ((...a: Parameters<typeof fetch>) => fetch(...a));
     try {
       const res = await f(`${this.base}${path}`, {
