@@ -663,6 +663,33 @@ describe('admin', () => {
     expect(detail.json.order.sms_count).toBe(1);
   });
 
+  it('semak status pembekal: membandingkan bilangan SMS tanpa mendedahkan kandungan; pelanggan ditolak', async () => {
+    const { app, env } = setup();
+    const c = new Client(app, env);
+    await c.register();
+    const { orderId, bill } = await newPaidOrder(c);
+    await c.req('POST', `/api/demo/payments/${bill}`, { outcome: 'paid' });
+    expect((await c.req('POST', `/api/admin/orders/${orderId}/provider-check`)).status).toBe(403);
+    const { client: admin } = await createAdmin(proxy, app, env);
+    let r = await admin.req('POST', `/api/admin/orders/${orderId}/provider-check`);
+    expect(r.status).toBe(200);
+    expect(r.json.provider).toMatchObject({ result: 'found', status: 'TZ_NUM_WAIT', messageCount: 0 });
+    expect(r.json.consistent).toBe(true);
+    // SMS masuk di pembekal tetapi sistem belum menyemak -> tidak sepadan; segerak -> sepadan
+    const tzid = (await proxy.env.DB.prepare('SELECT provider_tzid FROM orders WHERE id = ?').bind(orderId).first<{ provider_tzid: string }>())!.provider_tzid;
+    await proxy.env.DB.prepare("INSERT INTO mock_sms (tzid, body, created_at) VALUES (?, 'Kod rahsia 112233', ?)").bind(Number(tzid), Date.now()).run();
+    r = await admin.req('POST', `/api/admin/orders/${orderId}/provider-check`);
+    expect(r.json.consistent).toBe(false);
+    expect(r.json.provider.messageCount).toBe(1);
+    expect(JSON.stringify(r.json)).not.toContain('112233');
+    expect((await admin.req('POST', `/api/admin/orders/${orderId}/provider-sync`)).status).toBe(200);
+    r = await admin.req('POST', `/api/admin/orders/${orderId}/provider-check`);
+    expect(r.json.consistent).toBe(true);
+    expect(r.json.local.smsCount).toBe(1);
+    const logs = await admin.req('GET', '/api/admin/audit');
+    expect(logs.json.logs.some((l: any) => l.action === 'order.provider_check')).toBe(true);
+  });
+
   it('refund: processed memerlukan rujukan; peralihan tidak sah ditolak', async () => {
     const { app, env, clock } = setup();
     const c = new Client(app, env);

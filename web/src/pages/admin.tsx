@@ -209,6 +209,8 @@ export function AdminOrderDetail() {
         </div>
       </div>
 
+      {o.provider_tzid && <ProviderCheck orderId={o.id} onSynced={reload} />}
+
       {o.status === 'needs_reconciliation' && (
         <div className="card stack" style={{ marginTop: 16, borderColor: '#fde68a' }}>
           <h3>Rekonsiliasi</h3>
@@ -246,6 +248,64 @@ export function AdminOrderDetail() {
           <tbody>{data.events.map((e: any) => <tr key={e.id}><td className="small">{dt(e.created_at)}</td><td className="small">{e.from_status ?? '-'}</td><td className="small">{e.to_status}</td><td className="small mono">{String(e.actor).split(':')[0]}</td><td className="small">{e.reason}</td></tr>)}</tbody></table></div>
       </div>
     </Section>
+  );
+}
+
+const PROVIDER_STATUS_MS: Record<string, string> = {
+  TZ_INPOOL: 'Menunggu nombor dikeluarkan',
+  TZ_NUM_WAIT: 'Nombor dikeluarkan, menunggu SMS',
+  TZ_NUM_ANSWER: 'SMS diterima',
+  TZ_OVER_OK: 'Operasi selesai',
+  ERROR_NO_ITEMS: 'Operasi gagal / nombor tidak dikeluarkan',
+};
+
+function ProviderCheck({ orderId, onSynced }: { orderId: string; onSynced: () => void }) {
+  const [res, setRes] = useState<any>(null);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  async function run() {
+    setBusy(true);
+    setErr('');
+    try {
+      setRes(await api(`/admin/orders/${orderId}/provider-check`, { method: 'POST' }));
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Semakan gagal.');
+    } finally {
+      setBusy(false);
+    }
+  }
+  const p = res?.provider;
+  return (
+    <div className="card stack" style={{ marginTop: 16 }}>
+      <div className="row between">
+        <h3 style={{ margin: 0 }}>Semak status pembekal</h3>
+        <button className="btn btn-ghost btn-sm" disabled={busy} onClick={run}>{busy ? 'Menyemak…' : 'Semak sekarang'}</button>
+      </div>
+      <p className="small muted" style={{ margin: 0 }}>Membandingkan pesanan ini dengan rekod pembekal nombor (getState). Kandungan SMS tidak dipaparkan.</p>
+      {err && <div className="alert alert-error small">{err}</div>}
+      {res && (
+        <>
+          <div className={`alert small ${res.consistent === true ? 'alert-ok' : res.consistent === false ? 'alert-warn' : 'alert-info'}`}>
+            {res.consistent === true && '✓ Sistem dan pembekal sepadan.'}
+            {res.consistent === false && '⚠ Sistem dan pembekal TIDAK sepadan. Klik "Segerak" untuk menarik status terkini, kemudian semak semula.'}
+            {res.consistent === null && 'Pembekal tidak dapat disemak sekarang (lihat kod ralat).'}
+          </div>
+          <div className="table-wrap"><table>
+            <thead><tr><th></th><th>Pembekal</th><th>Sistem MHM</th></tr></thead>
+            <tbody>
+              <tr><td>ID operasi</td><td className="mono" colSpan={2}>{res.tzid}</td></tr>
+              <tr><td>Status</td><td>{p.result === 'found' ? `${PROVIDER_STATUS_MS[p.status] ?? p.status} (${p.status})` : p.result === 'not_found' ? 'Tiada dalam operasi aktif (ditutup/tamat)' : `Ralat: ${p.code}`}</td><td>{STATUS_MS[res.local.status] ?? res.local.status}</td></tr>
+              <tr><td>Bilangan SMS</td><td>{p.result === 'found' ? p.messageCount : '-'}</td><td>{res.local.smsCount} (disimpan: {res.local.storedMessages})</td></tr>
+              <tr><td>Baki masa</td><td>{p.result === 'found' && p.timeLeftS != null ? `${Math.floor(p.timeLeftS / 60)}m ${p.timeLeftS % 60}s` : '-'}</td><td>Semakan terakhir: {dt(res.local.lastPolledAt)}</td></tr>
+              {p.result === 'found' && <tr><td>Nombor sepadan</td><td colSpan={2}>{p.numberMatches ? 'Ya' : 'Tidak'}</td></tr>}
+              {res.local.lastErrorCode && <tr><td>Ralat terakhir (sistem)</td><td colSpan={2} className="mono">{res.local.lastErrorCode}</td></tr>}
+            </tbody>
+          </table></div>
+          <div className="small muted">Disemak {dt(res.checkedAt)} · {res.ms} ms</div>
+          {res.consistent === false && <div><button className="btn btn-navy btn-sm" onClick={async () => { await api(`/admin/orders/${orderId}/provider-sync`, { method: 'POST' }); onSynced(); await run(); }}>Segerak sekarang</button></div>}
+        </>
+      )}
+    </div>
   );
 }
 

@@ -3,9 +3,9 @@ import { microsToDecimal } from '../lib/money';
 import { STATUS_LABEL_MS } from '../lib/orderState';
 import { audit } from '../services/audit';
 import { AppError, listCountries, listServices } from '../services/catalog';
-import { getOrder, getProviderBalance, resolveReconciliation, type OrderRow, type PaymentRow } from '../services/orders';
+import { getOrder, getProviderBalance, refreshOrder, resolveReconciliation, type OrderRow, type PaymentRow } from '../services/orders';
 import { getMeta, getSettings, intSetting, updateSettings } from '../services/settings';
-import { jsonBody, requireAdmin, type HonoEnv } from '../http';
+import { enforceRateLimit, jsonBody, requireAdmin, type HonoEnv } from '../http';
 
 export const adminRoutes = new Hono<HonoEnv>();
 adminRoutes.use('*', requireAdmin);
@@ -92,6 +92,57 @@ adminRoutes.get('/orders/:id', async (c) => {
   // Kandungan SMS/OTP TIDAK dipaparkan kepada admin secara lalai; hanya bilangan.
   const { ...order } = o as OrderRow;
   return c.json({ order, user, payment, events: events.results, refund });
+});
+
+/**
+ * Diagnostik: bandingkan keadaan pesanan dalam sistem dengan getState pembekal.
+ * Kandungan SMS TIDAK dipulangkan — hanya bilangan, status dan baki masa.
+ */
+adminRoutes.post('/orders/:id/provider-check', async (c) => {
+  const app = c.get('app');
+  const admin = c.get('user')!;
+  await enforceRateLimit(c, `provider-check:${admin.id}`, 20, 60_000);
+  const o = await getOrder(app.db, c.req.param('id'));
+  if (!o) throw new AppError('NOT_FOUND', 404, 'Pesanan tidak dijumpai.');
+  if (!o.provider_tzid) throw new AppError('NO_OPERATION', 409, 'Pesanan ini tiada operasi pembekal (nombor belum dikeluarkan).');
+  const started = app.now();
+  const op = await app.sms.getOperation(o.provider_tzid);
+  const stored = await app.db.prepare('SELECT COUNT(*) AS n FROM sms_messages WHERE order_id = ?').bind(o.id).first<{ n: number }>();
+  const provider =
+    op.kind === 'found'
+      ? { result: 'found', status: op.status, messageCount: op.messages.length, timeLeftS: op.timeLeftS, numberMatches: op.number == null || op.number === o.phone_number }
+      : op.kind === 'not_found'
+        ? { result: 'not_found' }
+        : { result: 'error', code: op.code };
+  const local = { status: o.status, smsCount: o.sms_count, storedMessages: stored?.n ?? 0, lastPolledAt: o.last_polled_at, lastErrorCode: o.last_error_code };
+  const consistent =
+    op.kind === 'found'
+      ? o.status === 'active' && op.messages.length === o.sms_count && (op.number == null || op.number === o.phone_number)
+      : op.kind === 'not_found'
+        ? o.status !== 'active'
+        : null;
+  await audit(app.db, {
+    actor: admin.id,
+    action: 'order.provider_check',
+    targetType: 'order',
+    targetId: o.id,
+    details: { result: provider.result, consistent },
+    now: app.now(),
+  });
+  return c.json({ tzid: o.provider_tzid, provider, local, consistent, checkedAt: app.now(), ms: app.now() - started });
+});
+
+/** Paksa satu polling melalui laluan biasa (refreshOrder) untuk menyegerakkan SMS/status daripada pembekal. */
+adminRoutes.post('/orders/:id/provider-sync', async (c) => {
+  const app = c.get('app');
+  const admin = c.get('user')!;
+  await enforceRateLimit(c, `provider-sync:${admin.id}`, 20, 60_000);
+  const o = await getOrder(app.db, c.req.param('id'));
+  if (!o) throw new AppError('NOT_FOUND', 404, 'Pesanan tidak dijumpai.');
+  if (o.status !== 'active') throw new AppError('INVALID_STATE', 409, 'Hanya pesanan aktif boleh disegerakkan.');
+  await refreshOrder(app, o.id, { force: true });
+  await audit(app.db, { actor: admin.id, action: 'order.provider_sync', targetType: 'order', targetId: o.id, now: app.now() });
+  return c.json({ ok: true });
 });
 
 adminRoutes.post('/orders/:id/reconcile', async (c) => {
