@@ -522,16 +522,30 @@ describe('staging: SMS simulasi + CHIP mod ujian', () => {
     const denied = await cust.req('POST', '/api/orders', { countryCode: 60, serviceSlug: 'telegram', expectedPriceSen: price });
     expect(denied.status).toBe(403);
     expect(denied.json.error.code).toBe('STAGING_ADMIN_ONLY');
+    // Pesanan simulasi sedia ada (mode demo) tidak dikira dalam had
+    await proxy.env.DB.prepare(
+      "INSERT INTO orders (id, ref, user_id, mode, status, country_code, country_name, service_slug, service_name, cost_micros, cost_currency, fx_rate_micros, markup_bps, fixed_fee_sen, min_price_sen, rounding_sen, cost_sen, price_sen, payment_due_at, purchase_started_at, created_at, updated_at) SELECT 'sim-' || hex(randomblob(6)), 'SIM' || hex(randomblob(4)), id, 'demo', 'completed', 60, 'Malaysia', 'telegram', 'Telegram', 1, 'USD', 1, 0, 0, 0, 1, 1, 200, ?, ?, ?, ? FROM users LIMIT 6",
+    ).bind(clock.t, clock.t, clock.t, clock.t).run();
     const { client: admin } = await createAdmin(proxy, app, env);
     const codes: number[] = [];
-    for (let i = 0; i < 7; i++) {
+    // Pesanan yang dibatalkan sebelum bayar tidak dikira
+    for (let i = 0; i < 3; i++) {
+      const r = await admin.req('POST', '/api/orders', { countryCode: 60, serviceSlug: 'telegram', expectedPriceSen: price });
+      expect(r.status).toBe(201);
+      await admin.req('POST', `/api/orders/${r.json.order.id}/cancel`);
+    }
+    // Pesanan yang dibayar (pembelian bermula) dikira
+    for (let i = 0; i < 6; i++) {
       const r = await admin.req('POST', '/api/orders', { countryCode: 60, serviceSlug: 'telegram', expectedPriceSen: price });
       codes.push(r.status);
-      if (r.status === 201) await admin.req('POST', `/api/orders/${r.json.order.id}/cancel`);
+      if (r.status !== 201) continue;
+      const bill = (await proxy.env.DB.prepare('SELECT bill_code FROM payments WHERE order_id = ?').bind(r.json.order.id).first<{ bill_code: string }>())!.bill_code;
+      fx.purchases.get(bill)!.status = 'paid';
+      const body = JSON.stringify({ id: bill });
+      await app.fetch(new Request('http://localhost:5173/api/payments/chip/callback', { method: 'POST', headers: { 'X-Signature': await fx.sign(body) }, body }), env);
     }
-    expect(codes.filter((x) => x === 201).length).toBe(5);
-    expect(codes.slice(5)).toEqual([429, 429]);
-    expect(sms.buyCalls).toBe(0); // tiada pembelian tanpa bayaran disahkan
+    expect(codes).toEqual([201, 201, 201, 201, 201, 429]);
+    expect(sms.buyCalls).toBe(5);
   });
 
   it('staging tanpa secrets CHIP: /api/health menunjukkan nama ralat, API lain 503', async () => {

@@ -134,8 +134,10 @@ export async function createOrder(
   if (ctx.config.stagingRealNumbers) {
     // Staging dengan nombor OnlineSIM SEBENAR: kos sebenar kepada MHM, jadi hanya admin & dihadkan sehari.
     if (user.role !== 'admin') throw new AppError('STAGING_ADMIN_ONLY', 403, 'Staging: pembelian nombor sebenar hanya untuk admin.');
+    // Kira hanya pesanan nombor SEBENAR yang boleh menelan kos: pembelian telah bermula dalam 24 jam,
+    // atau masih menunggu bayaran (akan membeli jika dibayar). Pesanan simulasi/gagal/batal tidak dikira.
     const today = await ctx.db
-      .prepare('SELECT COUNT(*) AS n FROM orders WHERE created_at > ?')
+      .prepare("SELECT COUNT(*) AS n FROM orders WHERE mode = 'live' AND (purchase_started_at > ? OR status = 'pending_payment')")
       .bind(ctx.now() - 86_400_000)
       .first<{ n: number }>();
     if ((today?.n ?? 0) >= STAGING_REAL_DAILY_LIMIT) {
