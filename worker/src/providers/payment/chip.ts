@@ -125,7 +125,7 @@ export class ChipProvider implements PaymentProvider {
     if (!json || typeof json !== 'object') return '';
     const parts: string[] = [];
     const walk = (o: unknown, path: string, depth: number) => {
-      if (depth > 3 || parts.length >= 5) return;
+      if (depth > 6 || parts.length >= 5) return;
       if (Array.isArray(o)) {
         for (const x of o) walk(x, path, depth + 1);
       } else if (o && typeof o === 'object') {
