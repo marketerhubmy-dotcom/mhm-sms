@@ -21,7 +21,10 @@
     "deploy:web": "npm run build && wrangler pages deploy dist --project-name mhm-sms --branch production --cwd web",
     "db:migrate:staging": "wrangler d1 migrations apply DB --remote -c worker/wrangler.toml --env staging",
     "db:migrate:production": "wrangler d1 migrations apply DB --remote -c worker/wrangler.toml --env production",
-    "deploy:web:preview": "npm run build && wrangler pages deploy dist --project-name mhm-sms --branch preview --cwd web"
+    "deploy:web:preview": "npm run build && wrangler pages deploy dist --project-name mhm-sms --branch preview --cwd web",
+    "db:migrate:demo": "wrangler d1 migrations apply DB --remote -c worker/wrangler.toml --env demo",
+    "db:seed:demo": "wrangler d1 execute DB --remote -c worker/wrangler.toml --env demo --file=seed/demo.sql",
+    "deploy:demo": "npm run build && wrangler deploy -c worker/wrangler.toml --env demo"
   },
   "dependencies": {
     "hono": "^4.13.16",

@@ -73,3 +73,32 @@ database_id = "REPLACE_WITH_PRODUCTION_D1_ID"
 migrations_dir = "migrations"
 [env.production.triggers]
 crons = ["* * * * *"]
+
+# ---------------------------------------------------------------- demo (awam, SIMULASI)
+# Satu Worker menyajikan frontend (web/dist) DAN /api pada URL yang sama (*.workers.dev),
+# jadi cookie, CSRF dan /api same-origin tanpa Pages. Mock dipaksa; tiada secrets diperlukan.
+# Deploy: npm run deploy:demo   (selepas isi database_id dan APP_BASE_URL di bawah)
+[env.demo]
+name = "mhm-sms-demo"
+workers_dev = true
+[env.demo.vars]
+EXTRA_ALLOWED_ORIGINS = ""
+APP_ENV = "demo"
+APP_BASE_URL = "https://mhm-sms-demo.REPLACE_WITH_WORKERS_SUBDOMAIN.workers.dev"
+SMS_PROVIDER = "mock"
+PAYMENT_PROVIDER = "mock"
+LIVE_PURCHASES_ENABLED = "false"
+LIVE_PAYMENTS_ENABLED = "false"
+EMAIL_PROVIDER = "none"
+SUPPORT_EMAIL = "support@mhmacademy.site"
+[env.demo.assets]
+directory = "../web/dist"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+[[env.demo.d1_databases]]
+binding = "DB"
+database_name = "mhm-sms-demo"
+database_id = "REPLACE_WITH_DEMO_D1_ID"
+migrations_dir = "migrations"
+[env.demo.triggers]
+crons = ["* * * * *"]

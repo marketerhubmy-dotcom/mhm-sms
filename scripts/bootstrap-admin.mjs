@@ -17,8 +17,8 @@ if (!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(email)) {
   console.error('Emel tidak sah. Guna: --email nama@domain.com');
   process.exit(1);
 }
-if (!['local', 'staging', 'production'].includes(target)) {
-  console.error('--target mesti local, staging atau production');
+if (!['local', 'demo', 'staging', 'production'].includes(target)) {
+  console.error('--target mesti local, demo, staging atau production');
   process.exit(1);
 }
 // Emel telah disahkan dengan regex ketat (tiada petikan/koma bertitik), jadi selamat dimasukkan ke SQL.

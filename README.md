@@ -166,6 +166,10 @@ Tetapan perniagaan (markup, caj tetap, harga minimum, pembundaran, kadar tukaran
 
 Persekitaran demo awam (pilihan): tetapkan `APP_ENV=demo` dengan D1 berasingan; mod mock akan aktif dan semua halaman dilabel DEMO.
 
+## Demo awam di Cloudflare (pilihan)
+
+Persekitaran `demo` dalam `worker/wrangler.toml` ialah **satu Worker** yang menyajikan frontend (`web/dist`) dan `/api` pada URL yang sama (`https://mhm-sms-demo.<subdomain>.workers.dev`). Mock dipaksa (`APP_ENV=demo`), tiada secrets diperlukan, dan D1 `mhm-sms-demo` diasingkan daripada staging/production. Langkah penuh: lihat `docs/DEMO-DEPLOY.md`.
+
 ## Bootstrap admin
 
 Tiada kata laluan admin lalai dan pengguna tidak boleh memilih peranan semasa daftar.
