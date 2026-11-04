@@ -90,7 +90,7 @@ run_worker_first = ["/api/*"]
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "mhm-sms-prod"
-database_id = "REPLACE_WITH_PRODUCTION_D1_ID"
+database_id = "01901408-1dda-4027-923c-c8c05e188ec9"
 migrations_dir = "migrations"
 [env.production.triggers]
 crons = ["* * * * *"]
