@@ -174,6 +174,15 @@ describe('kata laluan', () => {
 });
 
 describe('servis disekat', () => {
+  it('kata kunci lalai (selepas migrasi 0003) menyekat servis kripto tanpa menyekat servis biasa', () => {
+    const kw = 'bank,pay,wallet,loan,credit,finance,kredit,pinjaman,crypto,binance,coinbase,bitstamp,kucoin,huobi,bybit,ftx,okx,kraken,mexc,bitget,bitfinex,blockchain,coin,exchange,trading,forex';
+    for (const [slug, name] of [['binance', 'Binance'], ['crypto', 'Crypto.com'], ['coinbase', 'Coinbase'], ['kucoinplay', 'Kucoin'], ['huobi', 'Huobi Global'], ['ftx', 'ftx.com'], ['coins', 'Coins'], ['hashkey', 'HashKey Exchange']]) {
+      expect(isBlockedService(slug, name, kw)).toBe(true);
+    }
+    for (const [slug, name] of [['tiktok', 'TikTok'], ['telegram', 'Telegram'], ['shopee', 'Shopee'], ['google', 'Google (Youtube, Gmail)'], ['discord', 'Discord'], ['microsoft', 'Microsoft'], ['3223', 'Facebook'], ['foodpanda', 'Foodpanda']]) {
+      expect(isBlockedService(slug, name, kw)).toBe(false);
+    }
+  });
   it('mengesan kata kunci kewangan', () => {
     const kw = 'bank,pay,wallet,loan';
     expect(isBlockedService('demobank', 'Demo Bank', kw)).toBe(true);

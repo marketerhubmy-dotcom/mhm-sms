@@ -689,6 +689,14 @@ describe('semakan stok sebelum pesanan', () => {
   });
 });
 
+describe('migrasi 0003', () => {
+  it('kata kunci kripto ditambah pada nilai lalai', async () => {
+    const r = await proxy.env.DB.prepare("SELECT value, updated_by FROM settings WHERE key = 'blocked_service_keywords'").first<{ value: string; updated_by: string }>();
+    expect(r?.value).toContain('binance');
+    expect(r?.value.startsWith('bank,pay,wallet')).toBe(true);
+  });
+});
+
 describe('admin', () => {
   it('pelanggan biasa ditolak daripada semua endpoint admin', async () => {
     const { app, env } = setup();
