@@ -153,9 +153,10 @@ export function Faq() {
     ['Apakah MHM SMS?', 'Servis yang membekalkan nombor telefon maya sementara untuk menerima SMS pengesahan (OTP) bagi satu servis pilihan anda.'],
     ['Adakah semua platform menerima nombor ini?', 'Tidak. Sesetengah platform menyekat nombor maya atau tidak menghantar SMS ke nombor tertentu. Kami tidak dapat menjamin setiap OTP akan sampai.'],
     ['Berapa lama nombor aktif?', 'Tempoh aktif ditetapkan oleh pembekal dan dipaparkan sebagai pemasa di halaman pesanan, biasanya sekitar 15 minit.'],
-    ['Bagaimana jika SMS tidak masuk?', 'Jika tiada SMS diterima dan pesanan tamat atau dibatalkan, anda boleh membuat permohonan refund dari halaman pesanan. Setiap permohonan disemak secara manual — lihat Polisi Refund.'],
+    ['Bagaimana jika SMS tidak masuk?', 'Sesetengah platform menyekat nombor maya atau mengehadkan permintaan kod. Minta kod sekali sahaja dan tunggu beberapa minit. Jika tiada SMS, klik Batal (dibenarkan selepas tempoh minimum, biasanya 2 minit) dan kemudian Mohon Refund. Setiap permohonan disemak secara manual — lihat Polisi Refund.'],
+    ['Bayaran saya gagal. Adakah saya dicaj?', 'Tidak. Percubaan bayaran yang gagal tidak dicaj. Anda boleh cuba bayar semula dari halaman pesanan sebelum tempoh bayaran tamat.'],
+    ['Kenapa tiada servis kripto atau e-wallet?', 'Penerimaan SMS daripada bank, sistem pembayaran dan e-wallet tidak disokong oleh pembekal nombor kami. Servis pinjaman dan bursa kripto pula tidak kami tawarkan atas dasar kami sendiri, kerana risiko penyalahgunaan.'],
     ['Boleh saya guna nombor yang sama lagi?', 'Tidak. Selepas pesanan selesai atau tamat, nombor tidak boleh digunakan semula. Sewaan nombor jangka panjang belum ditawarkan.'],
-    ['Kenapa tiada servis bank atau e-wallet?', 'Pembekal kami tidak menyokong penerimaan SMS daripada bank, sistem pembayaran dan institusi kewangan. Servis tersebut tidak ditawarkan.'],
     ['Kaedah bayaran apa yang diterima?', 'Pembayaran per pesanan melalui gerbang pembayaran CHIP. Kaedah yang dipaparkan di halaman pembayaran (contohnya FPX, kad atau e-wallet) bergantung kepada yang diaktifkan. Tiada dompet atau baki tersimpan.'],
     ['Adakah kandungan SMS saya disimpan?', 'Kandungan SMS disimpan untuk tempoh terhad supaya anda boleh melihatnya, kemudian dipadam secara automatik. Lihat Dasar Privasi.'],
     ['Saya sudah bayar tetapi status belum berubah?', 'Pengesahan bayaran biasanya mengambil masa beberapa saat hingga beberapa minit. Jika masih belum berubah selepas 15 minit, hubungi support dengan nombor rujukan pesanan.'],
@@ -210,7 +211,7 @@ export function Contact() {
 function Draft() {
   return (
     <div className="alert alert-info small" style={{ marginBottom: 20 }}>
-      Dokumen ini ialah draf awal dan perlu disemak oleh pemilik perniagaan sebelum dilancarkan secara rasmi.
+      Draf — dokumen ini perlu disemak oleh pemilik perniagaan (dan penasihat undang-undang jika perlu) sebelum dilancarkan secara rasmi. Kemas kini terakhir: November 2026.
     </div>
   );
 }
@@ -221,56 +222,117 @@ export function Terms() {
       <div className="container narrow prose">
         <h1>Terma Penggunaan</h1>
         <Draft />
-        <p>Dengan mendaftar dan menggunakan MHM SMS ("servis"), anda bersetuju dengan terma berikut. Servis dikendalikan oleh MHM CENTER.</p>
-        <h2>1. Servis</h2>
-        <p>Kami menyediakan akses kepada nombor telefon maya sementara untuk menerima SMS bagi satu servis yang dipilih. Nombor dibekalkan oleh pembekal pihak ketiga. Kami bukan pengendali rangkaian telekomunikasi.</p>
-        <h2>2. Tiada jaminan penghantaran</h2>
-        <p>Penghantaran SMS bergantung kepada platform penghantar, pembekal dan rangkaian pihak ketiga. Kami tidak menjamin bahawa sesuatu platform akan menerima nombor atau bahawa setiap SMS akan sampai.</p>
+        <p>
+          Terma ini terpakai kepada penggunaan laman MHM SMS ("servis") yang dikendalikan oleh MHM CENTER ("kami"). Dengan mendaftar akaun atau membuat pesanan, anda
+          bersetuju dengan terma ini.
+        </p>
+
+        <h2>1. Apa yang kami sediakan</h2>
+        <ul>
+          <li>Akses kepada <strong>nombor telefon maya sementara</strong> untuk menerima SMS daripada <strong>satu servis</strong> yang anda pilih (contohnya TikTok atau Telegram).</li>
+          <li>Nombor dibekalkan oleh pembekal pihak ketiga. Kami bukan pengendali rangkaian telekomunikasi dan tidak memiliki nombor tersebut.</li>
+          <li>Setiap nombor aktif untuk tempoh terhad (biasanya sekitar 15 minit, dipaparkan sebagai pemasa) dan <strong>tidak boleh digunakan semula</strong> selepas pesanan selesai, dibatalkan atau tamat.</li>
+          <li>Sewaan nombor jangka panjang belum ditawarkan.</li>
+        </ul>
+
+        <h2>2. Tiada jaminan penghantaran SMS</h2>
+        <p>
+          Penghantaran SMS ditentukan oleh platform penghantar dan rangkaian pihak ketiga. Sesetengah platform menyekat nombor maya, menapis negara tertentu, atau
+          menghadkan permintaan kod yang berulang. Kami <strong>tidak menjamin</strong> bahawa sesuatu platform akan menerima nombor atau bahawa setiap SMS akan sampai. Jika
+          tiada SMS diterima, anda boleh membatalkan pesanan dan memohon refund seperti dalam <Link to="/polisi-refund">Polisi Refund</Link>.
+        </p>
+
         <h2>3. Penggunaan yang dilarang</h2>
         <ul>
-          <li>Sebarang aktiviti yang menyalahi undang-undang, penipuan, atau mendatangkan mudarat.</li>
-          <li>Memintas sekatan, penapisan, sekatan akaun atau proses pengesahan identiti platform lain.</li>
-          <li>Menerima SMS daripada bank, sistem pembayaran atau institusi kewangan.</li>
-          <li>Penggunaan di mana-mana bidang kuasa yang melarang penggunaan nombor atau servis tersebut.</li>
+          <li>Sebarang aktiviti yang menyalahi undang-undang Malaysia atau undang-undang tempat anda berada, termasuk penipuan, penyamaran dan scam.</li>
+          <li>Memintas sekatan akaun, larangan (ban), had penggunaan atau proses pengesahan identiti platform lain.</li>
+          <li>Menerima SMS daripada bank, sistem pembayaran, e-wallet, pemberi pinjaman, bursa mata wang kripto atau institusi kewangan lain. Servis sebegini tidak ditawarkan.</li>
+          <li>Menjual semula nombor atau kod secara automatik, atau menggunakan skrip untuk membuat pesanan secara pukal.</li>
         </ul>
-        <p>Kami berhak menggantung atau menamatkan akaun yang melanggar terma ini.</p>
+        <p>Kami berhak menolak pesanan, menggantung atau menamatkan akaun yang melanggar terma ini, tanpa refund bagi pesanan yang disalahgunakan.</p>
+
         <h2>4. Akaun</h2>
-        <p>Anda bertanggungjawab menjaga kerahsiaan kata laluan anda. Satu akaun untuk seorang pengguna.</p>
+        <p>Anda bertanggungjawab menjaga kerahsiaan kata laluan anda dan semua aktiviti dalam akaun anda. Satu akaun untuk seorang pengguna. Jangan kongsi kod OTP anda dengan sesiapa, termasuk kakitangan kami.</p>
+
         <h2>5. Harga dan bayaran</h2>
-        <p>Harga dipaparkan dalam RM sebelum pembayaran dan mungkin berubah mengikut stok dan kos pembekal. Harga yang terpakai ialah harga yang disahkan semasa pesanan dibuat.</p>
-        <h2>6. Refund</h2>
-        <p>Tertakluk kepada <Link to="/polisi-refund">Polisi Refund</Link>.</p>
+        <ul>
+          <li>Harga dipaparkan dalam Ringgit Malaysia (RM) sebelum anda membayar. Harga boleh berubah mengikut stok dan kos pembekal; jika harga berubah sebelum pesanan disahkan, anda akan diminta mengesahkan semula.</li>
+          <li>Bayaran dibuat <strong>per pesanan</strong> melalui gerbang pembayaran CHIP. Tiada dompet atau baki tersimpan dalam akaun. Kami tidak menyimpan maklumat kad atau perbankan anda.</li>
+          <li>Setiap pesanan mempunyai tempoh bayaran (dipaparkan di halaman pesanan). Bayaran yang disahkan selepas tempoh itu tetap diproses jika boleh, atau direkodkan untuk refund jika nombor tidak dapat disediakan.</li>
+          <li>Pesanan hanya diproses selepas bayaran <strong>disahkan oleh sistem kami dengan gerbang pembayaran</strong>; paparan halaman "berjaya" sahaja tidak mencukupi.</li>
+        </ul>
+
+        <h2>6. Membatalkan pesanan</h2>
+        <ul>
+          <li>Sebelum bayaran: anda boleh membatalkan pesanan bila-bila masa.</li>
+          <li>Selepas nombor diberi: anda boleh membatalkan hanya jika <strong>tiada SMS diterima</strong>, dan selepas tempoh minimum yang ditetapkan oleh pembekal (biasanya 2 minit; WhatsApp 5 minit). Butang Batal akan menunjukkan baki masa menunggu.</li>
+          <li>Jika SMS sudah diterima, pesanan tidak boleh dibatalkan; tandakan sebagai selesai.</li>
+        </ul>
+
         <h2>7. Had liabiliti</h2>
-        <p>Setakat yang dibenarkan undang-undang, liabiliti kami terhad kepada amaun yang anda bayar untuk pesanan berkenaan.</p>
-        <h2>8. Perubahan terma</h2>
-        <p>Terma ini boleh dikemas kini dari semasa ke semasa. Versi terkini akan sentiasa dipaparkan di halaman ini.</p>
+        <p>
+          Setakat yang dibenarkan undang-undang, servis disediakan "seadanya". Liabiliti kami bagi sesuatu pesanan terhad kepada amaun yang anda bayar untuk pesanan
+          tersebut. Kami tidak bertanggungjawab atas kerugian tidak langsung, termasuk akaun di platform lain yang disekat atau tidak dapat disahkan.
+        </p>
+
+        <h2>8. Perubahan</h2>
+        <p>Kami boleh mengemas kini terma ini. Versi terkini sentiasa dipaparkan di halaman ini, dan terpakai kepada pesanan yang dibuat selepas tarikh kemas kini.</p>
+
+        <h2>9. Hubungi kami</h2>
+        <p>Untuk sebarang pertanyaan, lihat halaman <Link to="/hubungi">Hubungi</Link>.</p>
       </div>
     </section>
   );
 }
 
 export function Privacy() {
+  const { config } = useSession();
   return (
     <section className="section">
       <div className="container narrow prose">
         <h1>Dasar Privasi</h1>
         <Draft />
+        <p>Dasar ini menerangkan data peribadi yang kami kumpul dan cara kami menggunakannya, selaras dengan Akta Perlindungan Data Peribadi 2010 (PDPA).</p>
+
         <h2>Data yang kami kumpul</h2>
         <ul>
-          <li>Nama dan alamat emel untuk akaun anda.</li>
-          <li>Kata laluan dalam bentuk hash sahaja (kami tidak boleh melihat kata laluan anda).</li>
-          <li>Rekod pesanan dan status pembayaran (kami tidak menyimpan maklumat kad atau perbankan anda; pembayaran diproses oleh gerbang pembayaran).</li>
-          <li>Kandungan SMS yang diterima pada nombor yang anda beli.</li>
+          <li><strong>Akaun:</strong> nama dan alamat emel.</li>
+          <li><strong>Kata laluan:</strong> disimpan dalam bentuk hash sahaja. Kami tidak boleh melihat kata laluan anda.</li>
+          <li><strong>Pesanan:</strong> servis, negara, nombor sementara yang diberi, harga, status dan masa.</li>
+          <li><strong>Bayaran:</strong> status bayaran dan nombor rujukan transaksi daripada CHIP. Maklumat kad atau akaun bank anda diproses oleh CHIP dan <strong>tidak disimpan oleh kami</strong>.</li>
+          <li><strong>Kandungan SMS</strong> yang diterima pada nombor yang anda beli.</li>
+          <li><strong>Data teknikal terhad</strong> untuk keselamatan, seperti alamat IP dalam bentuk hash bagi mengehadkan cubaan log masuk.</li>
         </ul>
-        <p>Kami tidak meminta salinan kad pengenalan atau pasport.</p>
-        <h2>Tempoh simpanan SMS</h2>
-        <p>Kandungan SMS disimpan untuk tempoh terhad (lalai: 7 hari) dan kemudian dipadam secara automatik. Rekod pesanan (tanpa kandungan SMS) disimpan untuk tujuan perakaunan.</p>
+        <p>Kami <strong>tidak</strong> meminta salinan kad pengenalan atau pasport, dan tidak menggunakan cookie pengiklanan atau penjejakan. Cookie yang digunakan hanyalah cookie sesi log masuk yang diperlukan.</p>
+
+        <h2>Tujuan penggunaan</h2>
+        <ul>
+          <li>Menyediakan nombor dan memaparkan SMS kepada anda.</li>
+          <li>Mengesahkan bayaran, memproses refund dan menyimpan rekod perakaunan.</li>
+          <li>Mencegah penyalahgunaan dan melindungi keselamatan akaun.</li>
+          <li>Menghubungi anda tentang pesanan atau akaun anda.</li>
+        </ul>
+
         <h2>Siapa yang boleh melihat data anda</h2>
-        <p>Hanya anda yang boleh melihat nombor dan SMS dalam akaun anda. Kakitangan pentadbir tidak dipaparkan kandungan SMS secara lalai.</p>
-        <h2>Pihak ketiga</h2>
-        <p>Pembekal nombor dan gerbang pembayaran memproses data yang diperlukan untuk melaksanakan pesanan anda.</p>
+        <ul>
+          <li>Hanya anda yang boleh melihat nombor dan kandungan SMS dalam akaun anda.</li>
+          <li>Kakitangan pentadbir boleh melihat maklumat pesanan untuk sokongan dan perakaunan, tetapi <strong>kandungan SMS/OTP tidak dipaparkan kepada mereka</strong>.</li>
+          <li>Pihak ketiga yang memproses data bagi pihak kami: pembekal nombor (menerima SMS untuk nombor tersebut), CHIP (pembayaran), dan Cloudflare (pengehosan).</li>
+        </ul>
+
+        <h2>Tempoh simpanan</h2>
+        <ul>
+          <li>Kandungan SMS dipadam secara automatik selepas tempoh simpanan (lalai <strong>7 hari</strong>).</li>
+          <li>Rekod pesanan dan bayaran (tanpa kandungan SMS) disimpan selagi diperlukan untuk tujuan perakaunan dan undang-undang.</li>
+          <li>Sesi log masuk tamat selepas 7 hari tidak aktif.</li>
+        </ul>
+
         <h2>Hak anda</h2>
-        <p>Anda boleh menghubungi support untuk meminta akses atau pemadaman data akaun, tertakluk kepada keperluan rekod perakaunan.</p>
+        <p>
+          Anda boleh meminta akses kepada data anda, pembetulan, atau penutupan akaun dengan menghubungi kami
+          {config?.supportEmail ? <> di <a href={`mailto:${config.supportEmail}`}>{config.supportEmail}</a></> : null}. Sesetengah rekod mungkin perlu disimpan untuk
+          tujuan perakaunan.
+        </p>
       </div>
     </section>
   );
@@ -282,23 +344,34 @@ export function RefundPolicy() {
       <div className="container narrow prose">
         <h1>Polisi Refund</h1>
         <Draft />
-        <h2>Bila anda boleh memohon refund</h2>
+
+        <h2>Anda layak memohon refund jika</h2>
         <ul>
-          <li>Bayaran berjaya tetapi nombor tidak dapat disediakan (contohnya stok habis selepas bayaran). Permohonan dibuat secara automatik.</li>
-          <li>Nombor diberikan tetapi <strong>tiada sebarang SMS diterima</strong>, dan pesanan tamat tempoh atau dibatalkan.</li>
+          <li><strong>Bayaran berjaya tetapi nombor tidak dapat disediakan</strong> (contohnya stok habis selepas bayaran). Permohonan refund dibuat secara automatik.</li>
+          <li><strong>Nombor diberi tetapi tiada sebarang SMS diterima</strong>, dan pesanan telah dibatalkan atau tamat tempoh. Klik <em>Mohon Refund</em> di halaman pesanan.</li>
         </ul>
-        <h2>Bila refund tidak dapat diberikan</h2>
+
+        <h2>Refund tidak diberikan jika</h2>
         <ul>
-          <li>SMS telah diterima pada nombor tersebut (walaupun kod tidak berjaya digunakan di platform lain).</li>
-          <li>Penyalahgunaan servis atau pelanggaran Terma Penggunaan.</li>
+          <li>SMS telah diterima pada nombor tersebut, walaupun kod itu tidak berjaya digunakan atau platform kemudian menolak nombor itu.</li>
+          <li>Servis disalahgunakan atau Terma Penggunaan dilanggar.</li>
+          <li>Percubaan bayaran yang tidak berjaya: tiada caj dikenakan, jadi tiada refund diperlukan.</li>
         </ul>
+
         <h2>Proses</h2>
         <ol>
-          <li>Permohonan direkodkan sebagai <em>Dimohon</em> dan disemak secara manual.</li>
-          <li>Jika status pesanan dengan pembekal belum dapat dipastikan, refund ditangguhkan sehingga semakan selesai.</li>
-          <li>Jika diluluskan, wang dipulangkan ke akaun bank yang anda maklumkan kepada support. Status hanya ditukar kepada <em>Selesai</em> selepas pemulangan benar-benar dibuat.</li>
+          <li>Permohonan direkodkan dengan status <em>Dimohon</em> dan disemak secara manual oleh pasukan kami.</li>
+          <li>Jika status pesanan dengan pembekal belum dapat dipastikan (contohnya gangguan sambungan semasa nombor ditempah), refund ditangguhkan sehingga semakan selesai. Ini untuk mengelakkan refund bagi nombor yang sebenarnya telah diberi.</li>
+          <li>Jika diluluskan, status bertukar kepada <em>Diluluskan</em>, dan wang dipulangkan melalui kaedah pembayaran asal atau pindahan bank. Kami mungkin menghubungi anda untuk butiran akaun bank jika perlu.</li>
+          <li>Status hanya ditukar kepada <em>Selesai dipulangkan</em> selepas pemulangan benar-benar dibuat, bersama nombor rujukan transaksi.</li>
         </ol>
-        <p>Caj pihak ketiga (contohnya caj transaksi gerbang pembayaran) mungkin tidak dapat dipulangkan.</p>
+        <p>Tempoh pemulangan bergantung kepada kaedah pembayaran dan bank. Status terkini sentiasa dipaparkan di halaman pesanan anda.</p>
+
+        <h2>Caj</h2>
+        <p>Caj pihak ketiga, seperti caj transaksi gerbang pembayaran, mungkin tidak dapat dipulangkan.</p>
+
+        <h2>Pertanyaan</h2>
+        <p>Hubungi kami melalui halaman <Link to="/hubungi">Hubungi</Link> dengan menyertakan nombor rujukan pesanan.</p>
       </div>
     </section>
   );
