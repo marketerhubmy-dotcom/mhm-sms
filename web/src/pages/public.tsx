@@ -182,6 +182,7 @@ export function Faq() {
 
 export function Contact() {
   const { config } = useSession();
+  const wa = config?.supportWhatsapp?.replace(/\D/g, '');
   return (
     <section className="section">
       <div className="container narrow">
@@ -189,18 +190,27 @@ export function Contact() {
         <p className="muted">Untuk pertanyaan pesanan, sertakan nombor rujukan pesanan (contoh: MHMXXXXXXXX). Jangan kongsi kata laluan atau kod OTP anda dengan sesiapa, termasuk kami.</p>
         <div className="grid grid-2">
           <div className="card">
-            <h3>Emel</h3>
-            {config?.supportEmail ? <a href={`mailto:${config.supportEmail}`}>{config.supportEmail}</a> : <span className="muted">Belum ditetapkan</span>}
-          </div>
-          <div className="card">
             <h3>WhatsApp</h3>
-            {config?.supportWhatsapp ? (
-              <a href={`https://wa.me/${config.supportWhatsapp.replace(/\D/g, '')}`} rel="noopener noreferrer" target="_blank">
-                {config.supportWhatsapp}
+            {wa ? (
+              <a className="btn btn-primary btn-sm" href={`https://wa.me/${wa}`} rel="noopener noreferrer" target="_blank">
+                Chat WhatsApp{config?.supportPhone ? ` · ${config.supportPhone}` : ''}
               </a>
             ) : (
               <span className="muted">Belum ditetapkan</span>
             )}
+          </div>
+          <div className="card">
+            <h3>Emel</h3>
+            {config?.supportEmail ? <a href={`mailto:${config.supportEmail}`}>{config.supportEmail}</a> : <span className="muted">Belum ditetapkan</span>}
+          </div>
+        </div>
+        <div className="card" style={{ marginTop: 16 }}>
+          <h3>Maklumat perniagaan</h3>
+          <div className="stack small">
+            <div><strong>{config?.business.name ?? 'MHM CENTER'}</strong></div>
+            {config?.business.regNo && <div>No. pendaftaran SSM: {config.business.regNo}</div>}
+            {config?.business.address && <div>Alamat: {config.business.address}</div>}
+            {config?.supportPhone && <div>Telefon: {config.supportPhone}</div>}
           </div>
         </div>
       </div>
@@ -217,14 +227,16 @@ function Draft() {
 }
 
 export function Terms() {
+  const biz = useSession().config?.business;
   return (
     <section className="section">
       <div className="container narrow prose">
         <h1>Terma Penggunaan</h1>
         <Draft />
         <p>
-          Terma ini terpakai kepada penggunaan laman MHM SMS ("servis") yang dikendalikan oleh MHM CENTER ("kami"). Dengan mendaftar akaun atau membuat pesanan, anda
-          bersetuju dengan terma ini.
+          Terma ini terpakai kepada penggunaan laman MHM SMS ("servis") yang dikendalikan oleh {biz?.name ?? 'MHM CENTER'}
+          {biz?.regNo ? ` (No. pendaftaran SSM ${biz.regNo})` : ''}
+          {biz?.address ? `, beralamat di ${biz.address}` : ''} ("kami"). Dengan mendaftar akaun atau membuat pesanan, anda bersetuju dengan terma ini.
         </p>
 
         <h2>1. Apa yang kami sediakan</h2>

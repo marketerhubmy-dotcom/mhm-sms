@@ -94,4 +94,6 @@ export interface PublicConfig {
   passwordResetAvailable: boolean;
   supportEmail: string | null;
   supportWhatsapp: string | null;
+  supportPhone: string | null;
+  business: { name: string; regNo: string | null; address: string | null };
 }

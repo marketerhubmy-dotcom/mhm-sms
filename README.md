@@ -119,7 +119,8 @@ Nama sahaja disenaraikan dalam `.env.example` dan `worker/.dev.vars.example`. Pe
 | `ONLINESIM_BASE_URL` | var | `https://onlinesim.io` |
 | `CHIP_BASE_URL` | var | `https://gate.chip-in.asia/api/v1` (kunci ujian dan live menggunakan URL yang sama; pembelian ujian `is_test` ditolak dalam production). |
 | `EMAIL_PROVIDER` | var | `none` \| `resend` |
-| `SUPPORT_EMAIL`, `SUPPORT_WHATSAPP` | var | Dipaparkan di laman Hubungi. |
+| `SUPPORT_EMAIL`, `SUPPORT_PHONE`, `SUPPORT_WHATSAPP` | var | Dipaparkan di footer & laman Hubungi (`SUPPORT_WHATSAPP` dalam format antarabangsa tanpa +, cth. 601111141772). |
+| `BUSINESS_NAME`, `BUSINESS_REG_NO`, `BUSINESS_ADDRESS` | var | Maklumat penjual yang diwajibkan (Peraturan Perlindungan Pengguna (Urus Niaga Perdagangan Elektronik) 2012); dipaparkan di footer, Hubungi dan Terma. |
 | `ONLINESIM_API_KEY` | **secret** | Kunci API OnlineSIM (Profil → API). Dihantar dalam header `Authorization: Bearer`, tidak dalam URL. |
 | `ONLINESIM_WEBHOOK_TOKEN` | **secret** | Token rawak panjang untuk URL webhook `/api/webhooks/onlinesim/<token>`. |
 | `CHIP_SECRET_KEY` | **secret** | Secret key CHIP Collect (portal → Developers → API keys). Guna kunci **ujian** untuk staging. |

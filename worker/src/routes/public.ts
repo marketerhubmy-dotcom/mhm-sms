@@ -70,6 +70,12 @@ publicRoutes.get('/config', (c) => {
     passwordResetAvailable: !!app.email,
     supportEmail: app.env.SUPPORT_EMAIL ?? null,
     supportWhatsapp: app.env.SUPPORT_WHATSAPP ?? null,
+    supportPhone: app.env.SUPPORT_PHONE ?? null,
+    business: {
+      name: app.env.BUSINESS_NAME ?? 'MHM CENTER',
+      regNo: app.env.BUSINESS_REG_NO ?? null,
+      address: app.env.BUSINESS_ADDRESS ?? null,
+    },
   });
 });
 

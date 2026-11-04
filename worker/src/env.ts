@@ -18,6 +18,10 @@ export interface Env {
   PASSWORD_PBKDF2_ITERATIONS?: string;
   SUPPORT_EMAIL?: string;
   SUPPORT_WHATSAPP?: string;
+  SUPPORT_PHONE?: string;
+  BUSINESS_NAME?: string;
+  BUSINESS_REG_NO?: string;
+  BUSINESS_ADDRESS?: string;
   EXTRA_ALLOWED_ORIGINS?: string;
 }
 

@@ -80,7 +80,12 @@ function Footer() {
         <div className="cols">
           <div>
             <div style={{ color: '#fff', fontWeight: 800, marginBottom: 6 }}>MHM SMS</div>
-            <p className="small">Servis nombor maya sementara untuk menerima SMS pengesahan. Dikendalikan oleh MHM CENTER. Nombor dibekalkan oleh pembekal pihak ketiga.</p>
+            <p className="small">Servis nombor maya sementara untuk menerima SMS pengesahan. Nombor dibekalkan oleh pembekal pihak ketiga.</p>
+            <p className="small" style={{ margin: 0 }}>
+              Dikendalikan oleh <strong style={{ color: '#d7e1f0' }}>{config?.business.name ?? 'MHM CENTER'}</strong>
+              {config?.business.regNo ? <> ({config.business.regNo})</> : null}
+              {config?.business.address ? <><br />{config.business.address}</> : null}
+            </p>
           </div>
           <div className="stack small">
             <div><Link to="/terma">Terma Penggunaan</Link></div>
@@ -90,10 +95,11 @@ function Footer() {
           <div className="stack small">
             <div><Link to="/soalan-lazim">Soalan Lazim</Link></div>
             <div><Link to="/hubungi">Hubungi Support</Link></div>
-            {config?.supportEmail && <div>{config.supportEmail}</div>}
+            {config?.supportEmail && <div><a href={`mailto:${config.supportEmail}`}>{config.supportEmail}</a></div>}
+            {config?.supportPhone && <div>Tel/WhatsApp: {config.supportPhone}</div>}
           </div>
         </div>
-        <div className="small" style={{ marginTop: 28, color: '#6f82a1' }}>© {new Date().getFullYear()} MHM CENTER. Hak cipta terpelihara.</div>
+        <div className="small" style={{ marginTop: 28, color: '#6f82a1' }}>© {new Date().getFullYear()} {config?.business.name ?? 'MHM CENTER'}. Hak cipta terpelihara.</div>
       </div>
     </footer>
   );
