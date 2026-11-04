@@ -22,29 +22,35 @@ Website MHM CENTER untuk menjual servis **penerimaan SMS (activation jangka pend
 ## Seni bina
 
 ```
-Pelayar ──► Cloudflare Pages  (sms.mhmacademy.site)
-              ├─ web/dist            React + TypeScript + Vite (SPA)
-              └─ web/functions/api/[[path]].ts  ──Service Binding "API"──►  Worker mhm-sms-api
-                                                                              ├─ Hono (worker/src)
-                                                                              ├─ D1 (DB)
-                                                                              ├─ Cron setiap minit
-                                                                              ├─ OnlineSIM API
-                                                                              └─ CHIP Collect API
+Pelayar ──► Cloudflare Worker (satu Worker bagi setiap persekitaran)
+              ├─ Static assets: web/dist   (React + TypeScript + Vite, SPA)
+              └─ /api/*  ──► Hono (worker/src)
+                               ├─ D1 (DB, berasingan bagi setiap persekitaran)
+                               ├─ Cron setiap minit (polling, tamat tempoh, rekonsiliasi, retention)
+                               ├─ OnlineSIM API
+                               └─ CHIP Collect API
 ```
 
-- `/api/*` dihantar oleh Pages Function ke Worker melalui Service Binding, jadi cookie sesi kekal **same-origin** dan tiada CORS.
-- Semua serasi pelan percuma Cloudflare: Pages, Workers (had CPU 10 ms → password hashing guna PBKDF2 asli Web Crypto), D1, 1 Cron Trigger.
+| Persekitaran | Worker | URL | Nombor | Bayaran |
+|---|---|---|---|---|
+| `demo` | `mhm-sms-demo` | https://mhm-sms-demo.marketerhubmy.workers.dev | simulasi | simulasi |
+| `staging` | `mhm-sms-staging` | https://mhm-sms-staging.marketerhubmy.workers.dev | OnlineSIM sebenar (admin sahaja, 5/hari) | CHIP mod **ujian** sahaja |
+| `production` | `mhm-sms-prod` | https://sms.mhmacademy.site (Custom Domain) | OnlineSIM sebenar | CHIP **live** — OFF sehingga `LIVE_*=true` |
+
+- Frontend dan `/api` berada pada origin yang sama, jadi cookie sesi kekal same-origin tanpa CORS (`run_worker_first = ["/api/*"]`).
+- Serasi pelan percuma Cloudflare: Workers (had CPU 10 ms → password hashing guna PBKDF2 asli Web Crypto), D1, Cron Triggers (3 digunakan daripada 5 per akaun).
 - Tiada VPS dan tiada filesystem sebagai pangkalan data.
+- Nota: spesifikasi asal menyebut Cloudflare Pages untuk frontend. Pemilik memilih satu Worker (Workers Static Assets) kerana ia sudah diuji hujung ke hujung di demo/staging dan lebih ringkas.
 
 | Folder | Isi |
 |---|---|
 | `worker/src` | API: `routes/`, `services/` (pesanan, katalog, cron, tetapan), `providers/` (sms, payment, email), `lib/` (wang, kripto, state machine) |
 | `worker/migrations` | Migrasi D1 |
 | `web/src` | Frontend: halaman awam, papan pelanggan, panel admin |
-| `web/functions` | Pages Function proxy `/api/*` |
 | `seed/demo.sql` | Seed demo (tiada secrets/akaun) |
 | `scripts/` | `dev.mjs`, `bootstrap-admin.mjs` |
 | `tests/` | Ujian unit + integrasi (D1 tempatan sebenar melalui Miniflare) |
+| `docs/` | `DEMO-DEPLOY.md`, `STAGING-CHIP.md`, `PRODUCTION.md` |
 
 ## Mula pantas (tempatan)
 
@@ -130,41 +136,22 @@ Tetapan perniagaan (markup, caj tetap, harga minimum, pembundaran, kadar tukaran
 
 ## Deploy ke Cloudflare
 
-> Belum dilaksanakan. Langkah di bawah untuk pemilik akaun Cloudflare.
+Setiap persekitaran ialah satu Worker dengan D1 sendiri. Langkah penuh:
+- Demo: `docs/DEMO-DEPLOY.md`
+- Staging (CHIP ujian + OnlineSIM): `docs/STAGING-CHIP.md`
+- Production (`sms.mhmacademy.site`): `docs/PRODUCTION.md`
 
-1. Log masuk: `npx wrangler login`
-2. Cipta D1 berasingan untuk setiap persekitaran, kemudian salin `database_id` ke `worker/wrangler.toml` (`REPLACE_WITH_...`):
-   ```bash
-   npx wrangler d1 create mhm-sms-staging
-   ```
-   ```bash
-   npx wrangler d1 create mhm-sms-prod
-   ```
-3. Migrasi:
-   ```bash
-   npm run db:migrate:staging
-   ```
-   ```bash
-   npm run db:migrate:production
-   ```
-4. Tetapkan secrets (lihat jadual di atas) untuk `--env staging` dan `--env production`.
-5. Deploy Worker:
-   ```bash
-   npm run deploy:api:staging
-   ```
-   ```bash
-   npm run deploy:api:production
-   ```
-6. Cipta projek Pages `mhm-sms` (sekali sahaja): `npx wrangler pages project create mhm-sms --production-branch production`
-7. Deploy frontend:
-   ```bash
-   npm run deploy:web
-   ```
-   Service binding `API` dalam `web/wrangler.toml` menghala ke `mhm-sms-api` (production) dan `mhm-sms-api-staging` (preview).
-8. **Domain:** Pages → `mhm-sms` → *Custom domains* → tambah `sms.mhmacademy.site` (zon `mhmacademy.site` mesti di Cloudflare). Untuk staging, tambah `staging.sms.mhmacademy.site` pada deployment preview, atau kemas kini `APP_BASE_URL` staging mengikut URL yang digunakan.
-9. Semak `https://sms.mhmacademy.site/api/health` → `{"ok":true,"mode":"live",...}`.
+Arahan ringkas (dari folder repo, selepas `npx wrangler login`):
 
-Persekitaran demo awam (pilihan): tetapkan `APP_ENV=demo` dengan D1 berasingan; mod mock akan aktif dan semua halaman dilabel DEMO.
+```bash
+npx wrangler d1 migrations apply DB --remote -c worker/wrangler.toml --env production
+```
+
+```bash
+npm run deploy:api:production
+```
+
+Semak `https://sms.mhmacademy.site/api/health` → `{"ok":true,"mode":"live","env":"production",...}`. Jika `ok:false`, medan `configErrors` menamakan konfigurasi yang belum ditetapkan (tiada nilai rahsia).
 
 ## Demo awam di Cloudflare (pilihan)
 

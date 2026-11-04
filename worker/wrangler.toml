@@ -63,19 +63,30 @@ migrations_dir = "migrations"
 crons = ["* * * * *"]
 
 # ---------------------------------------------------------------- production
+# Satu Worker menyajikan frontend + /api di https://sms.mhmacademy.site (Workers Custom Domain).
+# Jualan OFF secara lalai: LIVE_PURCHASES_ENABLED / LIVE_PAYMENTS_ENABLED = "false".
+# Secrets (production SAHAJA, jangan kongsi dengan staging):
+#   ONLINESIM_API_KEY  (akaun OnlineSIM khusus laman), CHIP_SECRET_KEY (kunci LIVE), CHIP_BRAND_ID
 [env.production]
-name = "mhm-sms-api"
+name = "mhm-sms-prod"
+workers_dev = false
+routes = [{ pattern = "sms.mhmacademy.site", custom_domain = true }]
 [env.production.vars]
 APP_ENV = "production"
 APP_BASE_URL = "https://sms.mhmacademy.site"
 SMS_PROVIDER = "onlinesim"
-PAYMENT_PROVIDER = "chip"
 ONLINESIM_BASE_URL = "https://onlinesim.io"
+PAYMENT_PROVIDER = "chip"
 CHIP_BASE_URL = "https://gate.chip-in.asia/api/v1"
 LIVE_PURCHASES_ENABLED = "false"
 LIVE_PAYMENTS_ENABLED = "false"
 EMAIL_PROVIDER = "none"
 SUPPORT_EMAIL = "support@mhmacademy.site"
+EXTRA_ALLOWED_ORIGINS = ""
+[env.production.assets]
+directory = "../web/dist"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "mhm-sms-prod"

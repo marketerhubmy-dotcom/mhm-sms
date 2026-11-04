@@ -12,8 +12,8 @@ publicRoutes.get('/health', (c) => {
     env: app.config.appEnv,
     payment: app.config.paymentProvider === 'mock' ? 'simulated' : app.config.chipTestOnly ? 'chip-test' : 'chip',
     numbers: app.config.smsProvider === 'mock' ? 'simulated' : 'onlinesim',
-    // Nama masalah konfigurasi (tiada nilai rahsia) dipaparkan di luar production untuk memudahkan persediaan.
-    ...(app.config.appEnv !== 'production' && app.configErrors.length ? { configErrors: app.configErrors } : {}),
+    // Nama masalah konfigurasi (tiada nilai rahsia) dipaparkan hanya apabila konfigurasi tidak lengkap, untuk memudahkan persediaan.
+    ...(app.configErrors.length ? { configErrors: app.configErrors } : {}),
   });
 });
 
