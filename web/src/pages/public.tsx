@@ -247,6 +247,7 @@ export function Terms() {
           <li>Sebarang aktiviti yang menyalahi undang-undang Malaysia atau undang-undang tempat anda berada, termasuk penipuan, penyamaran dan scam.</li>
           <li>Memintas sekatan akaun, larangan (ban), had penggunaan atau proses pengesahan identiti platform lain.</li>
           <li>Menerima SMS daripada bank, sistem pembayaran, e-wallet, pemberi pinjaman, bursa mata wang kripto atau institusi kewangan lain. Servis sebegini tidak ditawarkan.</li>
+          <li>Perjudian dalam talian, termasuk kasino, taruhan sukan, poker dan loteri. Servis sebegini tidak ditawarkan.</li>
           <li>Menjual semula nombor atau kod secara automatik, atau menggunakan skrip untuk membuat pesanan secara pukal.</li>
         </ul>
         <p>Kami berhak menolak pesanan, menggantung atau menamatkan akaun yang melanggar terma ini, tanpa refund bagi pesanan yang disalahgunakan.</p>

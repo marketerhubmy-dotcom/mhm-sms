@@ -693,6 +693,8 @@ describe('migrasi 0003', () => {
   it('kata kunci kripto ditambah pada nilai lalai', async () => {
     const r = await proxy.env.DB.prepare("SELECT value, updated_by FROM settings WHERE key = 'blocked_service_keywords'").first<{ value: string; updated_by: string }>();
     expect(r?.value).toContain('binance');
+    expect(r?.value).toContain(',casino,');
+    expect(r?.value.match(/,casino,/g)?.length).toBe(1);
     expect(r?.value.startsWith('bank,pay,wallet')).toBe(true);
   });
 });

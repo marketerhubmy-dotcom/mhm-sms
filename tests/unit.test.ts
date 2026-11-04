@@ -183,6 +183,15 @@ describe('servis disekat', () => {
       expect(isBlockedService(slug, name, kw)).toBe(false);
     }
   });
+  it('kata kunci perjudian (migrasi 0004) menyekat servis judi tanpa menyekat servis biasa', () => {
+    const kw = 'bet,casino,poker,slot,gambling,lottery,loto,togel,judi,jackpot,freejackpot,32red,888casino,azino,bcgame,betfair,boylesports,ggpoker,mrgreen,william hill,williamhill,qbet,winbet,linebet,cloudbet,megapari,me88,paxful,localbitcoins,okcoin,swissborg,kcex,weex,toobit,zoomex,noones,blockdag,bitclout,dogedash,exness,xtb,hfm';
+    for (const [slug, name] of [['bet365', 'bet365'], ['888casino_com', '888casino.com'], ['ggpoker', 'GGPoker'], ['williamhill', 'William Hill'], ['rejekibet', 'Rejeki Bet'], ['lotoclub', 'LOTOCLUB'], ['me88', 'me88'], ['paxful', 'paxful'], ['slotbox', 'Slotbox']]) {
+      expect(isBlockedService(slug, name, kw)).toBe(true);
+    }
+    for (const [slug, name] of [['beehiiv', 'Beehiiv'], ['beedee', 'BeeDee'], ['blablacar', 'BlaBlaCar'], ['steam', 'Steam'], ['telegram', 'Telegram'], ['shopee', 'Shopee'], ['lazada', 'Lazada'], ['tiktok', 'TikTok'], ['netflix', 'Netflix']]) {
+      expect(isBlockedService(slug, name, kw)).toBe(false);
+    }
+  });
   it('mengesan kata kunci kewangan', () => {
     const kw = 'bank,pay,wallet,loan';
     expect(isBlockedService('demobank', 'Demo Bank', kw)).toBe(true);
