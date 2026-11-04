@@ -170,7 +170,8 @@ Tiada kata laluan admin lalai dan pengguna tidak boleh memilih peranan semasa da
    ```bash
    npm run bootstrap-admin -- --email admin@domain.com --target production
    ```
-3. Log masuk semula. Peranan disemak pada backend daripada D1 setiap request. Perubahan peranan direkod dalam audit log. Admin tidak boleh menukar peranan sendiri.
+3. Untuk menurunkan peranan akaun yang tersilap dijadikan admin: `npm run bootstrap-admin -- --email emel@domain.com --target production --role customer`.
+4. Log masuk semula. Peranan disemak pada backend daripada D1 setiap request. Perubahan peranan direkod dalam audit log. Admin tidak boleh menukar peranan sendiri.
 
 ## Senarai semak sebelum live
 
