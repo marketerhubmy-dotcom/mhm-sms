@@ -34,7 +34,7 @@ Pelayar ──► Cloudflare Worker (satu Worker bagi setiap persekitaran)
 | Persekitaran | Worker | URL | Nombor | Bayaran |
 |---|---|---|---|---|
 | `demo` | `mhm-sms-demo` | https://mhm-sms-demo.marketerhubmy.workers.dev | simulasi | simulasi |
-| `staging` | `mhm-sms-staging` | https://mhm-sms-staging.marketerhubmy.workers.dev | OnlineSIM sebenar (admin sahaja, 5/hari) | CHIP mod **ujian** sahaja |
+| `staging` | `mhm-sms-staging` | https://mhm-sms-staging.marketerhubmy.workers.dev | simulasi | CHIP mod **ujian** sahaja |
 | `production` | `mhm-sms-prod` | https://sms.mhmacademy.site (Custom Domain) | OnlineSIM sebenar | CHIP **live** — OFF sehingga `LIVE_*=true` |
 
 - Frontend dan `/api` berada pada origin yang sama, jadi cookie sesi kekal same-origin tanpa CORS (`run_worker_first = ["/api/*"]`).

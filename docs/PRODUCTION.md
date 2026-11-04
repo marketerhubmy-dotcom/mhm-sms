@@ -5,7 +5,7 @@ Worker `mhm-sms-prod`, D1 `mhm-sms-prod`, Workers Custom Domain `sms.mhmacademy.
 
 ## Prasyarat
 - Zon `mhmacademy.site` berada dalam akaun Cloudflare yang sama, dan **tiada rekod DNS sedia ada untuk `sms`** (Custom Domain akan menciptanya).
-- Akaun OnlineSIM **khusus untuk production**. Jangan beli nombor secara manual dengan akaun ini, dan jangan kongsi kuncinya dengan staging (rekonsiliasi automatik memadankan operasi aktif pada akaun yang sama).
+- Akaun OnlineSIM yang digunakan oleh production **tidak boleh digunakan serentak** oleh staging atau pembelian manual di papan pemuka OnlineSIM (rekonsiliasi automatik memadankan operasi aktif pada akaun yang sama). Keputusan pemilik: satu akaun OnlineSIM untuk production; staging menggunakan nombor simulasi dan tiada `ONLINESIM_API_KEY`.
 - Akaun CHIP diluluskan untuk transaksi **live**; gunakan secret key LIVE dan Brand ID.
 
 ## Langkah

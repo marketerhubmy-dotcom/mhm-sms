@@ -26,7 +26,9 @@ Semak: `/api/health` → `{"ok":true,"env":"staging","payment":"chip-test"}`. Ji
 
 Kad ujian CHIP (dokumentasi rasmi): `4444 3333 2222 1111` (bukan 3DS) atau `5555 5555 5555 4444` (3DS), CVC `123`, tarikh luput akan datang, sebarang nama. Tukar CVC/tarikh untuk mensimulasikan kegagalan.
 
-## Fasa 2: nombor OnlineSIM SEBENAR di staging
+## Fasa 2 (selesai, kini dimatikan): nombor OnlineSIM SEBENAR di staging
+
+> Sejak production menggunakan akaun OnlineSIM yang sama, staging kembali kepada nombor simulasi dan secret `ONLINESIM_API_KEY` staging dipadam. Hidupkan semula hanya untuk ujian singkat ketika production tiada pesanan aktif.
 
 `SMS_PROVIDER = "onlinesim"`, `LIVE_PURCHASES_ENABLED = "true"` dalam `[env.staging.vars]`. Pengawal dalam kod:
 - Hanya **admin** boleh membuat pesanan (`STAGING_ADMIN_ONLY`); pelanggan biasa ditolak.
