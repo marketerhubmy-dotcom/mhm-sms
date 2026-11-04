@@ -218,7 +218,9 @@ describe('adapter CHIP', () => {
       expect((await p.fetchStatus(billCode)).status).toBe('failed');
     }
     set('error');
-    expect((await p.fetchStatus(billCode)).status).toBe('pending');
+    expect(await p.fetchStatus(billCode)).toEqual({ status: 'pending', attemptFailed: true });
+    set('viewed');
+    expect(await p.fetchStatus(billCode)).toEqual({ status: 'pending' });
     set('refunded');
     expect(await p.fetchStatus(billCode)).toEqual({ status: 'unknown', code: 'REVERSED_REFUNDED' });
     expect((await p.fetchStatus('00000000-0000-0000-0000-000000000000')).status).toBe('none');

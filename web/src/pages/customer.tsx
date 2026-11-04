@@ -300,12 +300,19 @@ export function OrderDetail({ checkPayment = false }: { checkPayment?: boolean }
 
         {o.status === 'pending_payment' && (
           <div className="stack">
-            <div className="alert alert-info">
-              <strong>Menunggu pengesahan bayaran.</strong> Jika anda sudah membayar, status akan dikemas kini secara automatik dalam beberapa saat.
-              <div className="small" style={{ marginTop: 6 }}>Tempoh bayaran tamat: {dt(o.paymentDueAt)}</div>
-            </div>
+            {o.paymentAttemptFailed ? (
+              <div className="alert alert-warn">
+                <strong>Percubaan bayaran terakhir tidak berjaya.</strong> Tiada caj dikenakan untuk percubaan itu. Anda boleh cuba lagi, dengan kaedah yang sama atau kaedah lain, sebelum tempoh bayaran tamat.
+                <div className="small" style={{ marginTop: 6 }}>Tempoh bayaran tamat: {dt(o.paymentDueAt)}</div>
+              </div>
+            ) : (
+              <div className="alert alert-info">
+                <strong>Menunggu pengesahan bayaran.</strong> Jika anda sudah membayar, status akan dikemas kini secara automatik dalam beberapa saat.
+                <div className="small" style={{ marginTop: 6 }}>Tempoh bayaran tamat: {dt(o.paymentDueAt)}</div>
+              </div>
+            )}
             <div className="row">
-              {data.paymentUrl && <a className="btn btn-primary" href={data.paymentUrl}>Teruskan Pembayaran</a>}
+              {data.paymentUrl && <a className="btn btn-primary" href={data.paymentUrl}>{o.paymentAttemptFailed ? 'Cuba Bayar Semula' : 'Teruskan Pembayaran'}</a>}
               <button className="btn btn-ghost" disabled={!!busy} onClick={() => action('cancel', 'cancel')}>Batal Pesanan</button>
             </div>
           </div>

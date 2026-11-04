@@ -41,6 +41,7 @@ export function customerOrderView(o: OrderRow, extra: { payment?: PaymentRow | n
     closedAt: o.closed_at,
     lateNotice: o.late_payment === 1,
     paymentIssue: o.last_error_code === 'PAYMENT_MISMATCH',
+    paymentAttemptFailed: o.status === 'pending_payment' && o.last_error_code === 'PAYMENT_ATTEMPT_FAILED',
     payment: extra.payment ? { status: extra.payment.status, provider: extra.payment.provider } : null,
     refund: extra.refund ? { status: extra.refund.status, createdAt: extra.refund.created_at } : null,
     canRequestRefund: refundEligible(o.status, o.sms_count) && !extra.refund,

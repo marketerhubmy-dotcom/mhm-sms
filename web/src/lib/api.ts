@@ -73,6 +73,7 @@ export interface OrderView {
   closedAt: number | null;
   lateNotice: boolean;
   paymentIssue: boolean;
+  paymentAttemptFailed: boolean;
   payment: { status: string; provider: string } | null;
   refund: { status: string; createdAt: number } | null;
   canRequestRefund: boolean;

@@ -501,6 +501,21 @@ describe('CHIP melalui endpoint callback', () => {
     expect(o.json.order.payment.provider).toBe('chip');
   });
 
+  it('percubaan bayaran gagal (status CHIP error) -> mesej cuba lagi; berjaya kemudian -> mesej hilang & dibayar', async () => {
+    const a = await chipSetup();
+    a.purchase.status = 'error';
+    let o = await a.c.req('GET', `/api/orders/${a.orderId}?check=1`);
+    expect(o.json.order.status).toBe('pending_payment');
+    expect(o.json.order.paymentAttemptFailed).toBe(true);
+    expect(o.json.paymentUrl).toMatch(/gate\.chip-in\.asia/);
+    a.purchase.status = 'paid';
+    o = await a.c.req('GET', `/api/orders/${a.orderId}?check=1`);
+    expect(o.json.order.status).toBe('active');
+    expect(o.json.order.paymentAttemptFailed).toBe(false);
+    const row = await proxy.env.DB.prepare('SELECT last_error_code FROM orders WHERE id = ?').bind(a.orderId).first<{ last_error_code: string | null }>();
+    expect(row?.last_error_code).toBeNull();
+  });
+
   it('pelanggan kembali (redirect) -> sahkan melalui API; batal sebelum bayar memanggil cancel', async () => {
     const a = await chipSetup();
     expect((await a.c.req('GET', `/api/orders/${a.orderId}?check=1`)).json.order.status).toBe('pending_payment');

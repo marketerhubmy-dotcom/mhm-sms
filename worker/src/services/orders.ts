@@ -288,6 +288,7 @@ export async function processPaymentSignal(ctx: AppCtx, billCode: string, source
         await transition(ctx, order.id, fresh.status, 'paid', `payment:${source}`, late ? 'Bayaran lewat disahkan' : 'Bayaran disahkan', {
           paid_at: now,
           late_payment: late ? 1 : 0,
+          last_error_code: null,
         });
       }
       await audit(ctx.db, { actor: null, action: 'payment.verified', targetType: 'order', targetId: order.id, details: { source, amountSen: st.amountSen }, now });
@@ -299,6 +300,14 @@ export async function processPaymentSignal(ctx: AppCtx, billCode: string, source
     await ctx.db.prepare("UPDATE payments SET status = 'failed', updated_at = ? WHERE id = ? AND status IN ('created','pending')").bind(now, payment.id).run();
     await transition(ctx, order.id, 'pending_payment', 'payment_failed', `payment:${source}`, 'Bayaran gagal');
     return 'failed';
+  }
+  if (st.status === 'pending' && st.attemptFailed) {
+    // Tunjuk kepada pelanggan bahawa percubaan terakhir gagal; pesanan kekal boleh dibayar sehingga tamat tempoh.
+    await ctx.db
+      .prepare("UPDATE orders SET last_error_code = 'PAYMENT_ATTEMPT_FAILED', updated_at = ? WHERE id = ? AND status = 'pending_payment' AND (last_error_code IS NULL OR last_error_code != 'PAYMENT_ATTEMPT_FAILED')")
+      .bind(now, order.id)
+      .run();
+    return 'pending';
   }
   if (st.status === 'pending' || st.status === 'none') return 'pending';
   return 'unknown';

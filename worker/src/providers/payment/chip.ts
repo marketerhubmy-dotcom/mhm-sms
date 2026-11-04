@@ -212,7 +212,9 @@ export class ChipProvider implements PaymentProvider {
     }
     if (FAILED.has(st)) return { status: 'failed' };
     if (REVERSED.has(st)) return { status: 'unknown', code: `REVERSED_${st.toUpperCase()}` };
-    // created, sent, viewed, overdue, error (pelanggan boleh cuba lagi), pending_* , hold, dll.
+    // 'error' / 'blocked': percubaan bayaran gagal, tetapi bil masih boleh dibayar semula (dokumentasi CHIP).
+    if (st === 'error' || st === 'blocked') return { status: 'pending', attemptFailed: true };
+    // created, sent, viewed, overdue, pending_*, hold, dll.
     return { status: 'pending' };
   }
 

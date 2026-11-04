@@ -18,7 +18,8 @@ export interface CreateBillResult {
 
 export type PaymentStatusResult =
   | { status: 'paid'; amountSen: number; currency: string; orderRef: string | null; providerRef: string | null }
-  | { status: 'pending' | 'failed' | 'none' }
+  | { status: 'pending'; attemptFailed?: boolean }
+  | { status: 'failed' | 'none' }
   | { status: 'unknown'; code: string };
 
 export interface CallbackCheck {
