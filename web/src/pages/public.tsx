@@ -218,11 +218,13 @@ export function Contact() {
   );
 }
 
-function Draft() {
+const LAST_UPDATED = '4 November 2026';
+
+function LastUpdated() {
   return (
-    <div className="alert alert-info small" style={{ marginBottom: 20 }}>
-      Draf — dokumen ini perlu disemak oleh pemilik perniagaan (dan penasihat undang-undang jika perlu) sebelum dilancarkan secara rasmi. Kemas kini terakhir: November 2026.
-    </div>
+    <p className="small muted" style={{ marginTop: -6, marginBottom: 24 }}>
+      Kemas kini terakhir: {LAST_UPDATED}
+    </p>
   );
 }
 
@@ -232,7 +234,7 @@ export function Terms() {
     <section className="section">
       <div className="container narrow prose">
         <h1>Terma Penggunaan</h1>
-        <Draft />
+        <LastUpdated />
         <p>
           Terma ini terpakai kepada penggunaan laman MHM SMS ("servis") yang dikendalikan oleh {biz?.name ?? 'MHM CENTER'}
           {biz?.regNo ? ` (No. pendaftaran SSM ${biz.regNo})` : ''}
@@ -304,7 +306,7 @@ export function Privacy() {
     <section className="section">
       <div className="container narrow prose">
         <h1>Dasar Privasi</h1>
-        <Draft />
+        <LastUpdated />
         <p>Dasar ini menerangkan data peribadi yang kami kumpul dan cara kami menggunakannya, selaras dengan Akta Perlindungan Data Peribadi 2010 (PDPA).</p>
 
         <h2>Data yang kami kumpul</h2>
@@ -356,7 +358,7 @@ export function RefundPolicy() {
     <section className="section">
       <div className="container narrow prose">
         <h1>Polisi Refund</h1>
-        <Draft />
+        <LastUpdated />
 
         <h2>Anda layak memohon refund jika</h2>
         <ul>

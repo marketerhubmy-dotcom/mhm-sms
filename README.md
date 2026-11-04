@@ -195,7 +195,7 @@ Tiada kata laluan admin lalai dan pengguna tidak boleh memilih peranan semasa da
 
 **Perniagaan & undang-undang:**
 
-- [ ] Semak dan muktamadkan draf Terma, Privasi dan Polisi Refund (ditanda "draf" di laman).
+- [x] Terma, Privasi dan Polisi Refund dimuktamadkan oleh pemilik (4 Nov 2026). Semakan penasihat undang-undang masih disyorkan.
 - [ ] Tetapkan markup, caj tetap, harga minimum.
 - [ ] Prosedur refund manual. CHIP ada `POST /purchases/{id}/refund/`, tetapi versi ini **tidak** memanggilnya secara automatik; refund diproses oleh admin (di portal CHIP atau pindahan bank) dan direkod dengan rujukan transaksi.
 

@@ -21,7 +21,7 @@ Worker `mhm-sms-prod`, D1 `mhm-sms-prod`, Workers Custom Domain `sms.mhmacademy.
 7. Admin → Harga & Katalog: semak mata wang, kadar tukaran, markup, caj tetap, harga minimum, kata kunci sekatan, negara/servis.
 
 ## Membuka jualan (selepas semua semakan)
-1. Muktamadkan Terma/Privasi/Refund (buang label draf).
+1. ~~Muktamadkan Terma/Privasi/Refund~~ — selesai 4 Nov 2026.
 2. Pastikan baki OnlineSIM mencukupi.
 3. Tukar `LIVE_PURCHASES_ENABLED` dan `LIVE_PAYMENTS_ENABLED` kepada `"true"` dalam `[env.production.vars]`, `npm run deploy:api:production`.
 4. Buat satu pesanan sebenar sendiri dahulu dan pantau dengan Admin → Pesanan → Semak status pembekal.
