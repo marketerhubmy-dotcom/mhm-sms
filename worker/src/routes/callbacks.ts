@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { timingSafeEqualStr } from '../lib/crypto';
 import { processPaymentSignal, refreshOrder } from '../services/orders';
-import type { HonoEnv } from '../http';
+import { keepAlive, type HonoEnv } from '../http';
 
 export const callbackRoutes = new Hono<HonoEnv>();
 
@@ -30,7 +30,7 @@ callbackRoutes.post('/payments/:provider/callback', async (c) => {
       .run();
     return c.text('Invalid signature', 400);
   }
-  const result = await processPaymentSignal(app, check.billCode, 'callback');
+  const result = await keepAlive(c, processPaymentSignal(app, check.billCode, 'callback'));
   await app.db
     .prepare('INSERT INTO payment_callbacks (provider, bill_code, signature_valid, result, received_at) VALUES (?, ?, 1, ?, ?)')
     .bind(provider, check.billCode.slice(0, 64), result, now)
@@ -60,7 +60,7 @@ callbackRoutes.post('/webhooks/onlinesim/:token', async (c) => {
     .bind(opId)
     .first<{ id: string; last_polled_at: number | null }>();
   if (order && (!order.last_polled_at || app.now() - order.last_polled_at > 3000)) {
-    await refreshOrder(app, order.id, { force: true });
+    await keepAlive(c, refreshOrder(app, order.id, { force: true }));
   }
   return c.text('OK');
 });

@@ -22,10 +22,16 @@ class CountingSms extends MockSmsProvider {
   buyCalls = 0;
   delayMs = 0;
   forced: BuyResult | null = null;
+  issueButUnknown = false;
   async buyNumber(input: { countryCode: number; serviceSlug: string }): Promise<BuyResult> {
     this.buyCalls++;
     if (this.delayMs) await new Promise((r) => setTimeout(r, this.delayMs));
     if (this.forced) return this.forced;
+    if (this.issueButUnknown) {
+      // Pembekal mengeluarkan nombor, tetapi jawapan tidak sampai kepada kita (cth. timeout / sambungan terputus).
+      await super.buyNumber(input);
+      return { kind: 'unknown', code: 'TIMEOUT' };
+    }
     return super.buyNumber(input);
   }
 }
@@ -287,6 +293,41 @@ describe('idempotensi pembayaran & pembelian', () => {
     const rf = await proxy.env.DB.prepare("SELECT COUNT(*) AS n FROM refunds WHERE order_id = ? AND status = 'requested'").bind(orderId).first<{ n: number }>();
     expect(rf?.n).toBe(1);
     expect(sms.buyCalls).toBe(1);
+  });
+
+  it('getNum terputus tetapi nombor dikeluarkan -> cron memadankan secara automatik (tepat satu calon)', async () => {
+    const { app, env, sms, ctx, clock } = setup();
+    const c = new Client(app, env);
+    await c.register();
+    // Kosongkan operasi mock lama supaya ujian ini terasing
+    await proxy.env.DB.prepare('UPDATE mock_operations SET closed = 1').run();
+    const { orderId, bill } = await newPaidOrder(c, 'instagram');
+    sms.issueButUnknown = true;
+    await c.req('POST', `/api/demo/payments/${bill}`, { outcome: 'paid' });
+    expect((await c.req('GET', `/api/orders/${orderId}`)).json.order.status).toBe('needs_reconciliation');
+    clock.advance(60_000);
+    await runScheduled(ctx());
+    const o = await c.req('GET', `/api/orders/${orderId}`);
+    expect(o.json.order.status).toBe('active');
+    expect(o.json.order.phoneNumber).toMatch(/^\+60/);
+    expect(sms.buyCalls).toBe(1);
+    const ev = await proxy.env.DB.prepare("SELECT actor FROM order_events WHERE order_id = ? AND to_status = 'active'").bind(orderId).first<{ actor: string }>();
+    expect(ev?.actor).toBe('system:auto-reconcile');
+  });
+
+  it('rekonsiliasi automatik TIDAK memadankan jika ada lebih daripada satu calon', async () => {
+    const { app, env, sms, ctx, clock } = setup();
+    const c = new Client(app, env);
+    await c.register();
+    await proxy.env.DB.prepare('UPDATE mock_operations SET closed = 1').run();
+    // Operasi tambahan yang sama servis/negara (cth. pembelian manual di papan pemuka pembekal)
+    await new MockSmsProvider(proxy.env.DB, clock.now).buyNumber({ countryCode: 60, serviceSlug: 'instagram' });
+    const { orderId, bill } = await newPaidOrder(c, 'instagram');
+    sms.issueButUnknown = true;
+    await c.req('POST', `/api/demo/payments/${bill}`, { outcome: 'paid' });
+    clock.advance(60_000);
+    await runScheduled(ctx());
+    expect((await c.req('GET', `/api/orders/${orderId}`)).json.order.status).toBe('needs_reconciliation');
   });
 
   it('pembekal menolak (NO_NUMBER) -> purchase_failed + satu permohonan refund (pending)', async () => {

@@ -15,7 +15,7 @@ import {
   type OrderRow,
   type PaymentRow,
 } from '../services/orders';
-import { enforceRateLimit, jsonBody, requireUser, type HonoEnv } from '../http';
+import { enforceRateLimit, jsonBody, keepAlive, requireUser, type HonoEnv } from '../http';
 
 const ACTIVE_STATES: OrderStatus[] = ['pending_payment', 'paid', 'purchasing', 'active', 'needs_reconciliation'];
 
@@ -91,7 +91,7 @@ orderRoutes.get('/', async (c) => {
   const rows = await app.db.prepare(sql).bind(user.id, ...ACTIVE_STATES).all<OrderRow>();
   // Segarkan pesanan aktif yang tiba masa polling (dihadkan).
   if (scope === 'active') {
-    for (const o of rows.results.filter((o) => o.status === 'active').slice(0, 3)) await refreshOrder(app, o.id);
+    for (const o of rows.results.filter((o) => o.status === 'active').slice(0, 3)) await keepAlive(c, refreshOrder(app, o.id));
   }
   const fresh = scope === 'active' ? (await app.db.prepare(sql).bind(user.id, ...ACTIVE_STATES).all<OrderRow>()).results : rows.results;
   return c.json({ orders: fresh.map((o) => customerOrderView(o)), serverNow: app.now() });
@@ -103,10 +103,10 @@ orderRoutes.get('/:id', async (c) => {
   if (o.status === 'pending_payment' && c.req.query('check') === '1') {
     // Pelanggan kembali dari halaman bayaran: redirect BUKAN bukti; sahkan dengan pembekal.
     const p = await app.db.prepare('SELECT bill_code FROM payments WHERE order_id = ?').bind(o.id).first<{ bill_code: string | null }>();
-    if (p?.bill_code) await processPaymentSignal(app, p.bill_code, 'return');
+    if (p?.bill_code) await keepAlive(c, processPaymentSignal(app, p.bill_code, 'return'));
   }
   if (o.status === 'active' || o.status === 'pending_payment') {
-    await refreshOrder(app, o.id);
+    await keepAlive(c, refreshOrder(app, o.id));
     o = (await getOwnedOrder(app.db, o.id, o.user_id))!;
   }
   const payment = await app.db.prepare('SELECT * FROM payments WHERE order_id = ?').bind(o.id).first<PaymentRow>();
@@ -152,7 +152,7 @@ orderRoutes.post('/:id/demo-sms', async (c) => {
   const o = await loadOwned(c, c.req.param('id'));
   if (o.status !== 'active' || !o.provider_tzid) throw new AppError('INVALID_STATE', 409, 'Pesanan tidak aktif.');
   await app.sms.simulateIncomingSms(o.provider_tzid, o.service_name);
-  await refreshOrder(app, o.id, { force: true });
+  await keepAlive(c, refreshOrder(app, o.id, { force: true }));
   return c.json({ ok: true });
 });
 
@@ -186,6 +186,6 @@ demoPaymentRoutes.post('/:billCode', async (c) => {
   const outcome = b.outcome === 'failed' ? 'failed' : 'paid';
   await payment.setOutcome(billCode, outcome);
   // Simulasi callback: melalui laluan pengesahan yang sama seperti pembekal sebenar.
-  const result = await processPaymentSignal(app, billCode, 'demo-callback');
+  const result = await keepAlive(c, processPaymentSignal(app, billCode, 'demo-callback'));
   return c.json({ orderId: row.id, result });
 });

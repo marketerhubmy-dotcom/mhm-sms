@@ -1,6 +1,6 @@
 import type { AppCtx } from './context';
 import { audit } from './audit';
-import { attemptPurchase, getProviderBalance, processPaymentSignal, refreshOrder, transition } from './orders';
+import { attemptPurchase, autoReconcile, getProviderBalance, processPaymentSignal, refreshOrder, transition } from './orders';
 import { getSettings, intSetting } from './settings';
 
 /**
@@ -50,6 +50,13 @@ export async function runScheduled(ctx: AppCtx): Promise<Record<string, number>>
     }
   }
   stats.stalled = stuck.results.length;
+
+  // 4b. Rekonsiliasi automatik yang konservatif (getNum terputus tetapi pembekal sudah mengeluarkan nombor).
+  try {
+    stats.autoReconciled = await autoReconcile(ctx);
+  } catch {
+    stats.autoReconciled = 0;
+  }
 
   // 5. Polling pesanan aktif yang tiba masanya.
   const active = await ctx.db

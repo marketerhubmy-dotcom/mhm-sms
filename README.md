@@ -189,6 +189,7 @@ Tiada kata laluan admin lalai dan pengguna tidak boleh memilih peranan semasa da
 
 **Konfigurasi & credentials** (tetapkan sendiri melalui `wrangler secret put` — jangan tampal dalam chat atau Git):
 
+- [ ] Akaun OnlineSIM khusus untuk laman (jangan beli manual di papan pemukanya; guna akaun lain untuk ujian manual).
 - [ ] Akaun OnlineSIM: API diaktifkan (Profil → API), **IP allowlist** dikonfigurasi atau dimatikan. Worker Cloudflare tidak mempunyai IP keluar tetap, jadi allowlist IP mungkin menyebabkan `API_ACCESS_IP`.
 - [ ] `ONLINESIM_API_KEY`, `ONLINESIM_WEBHOOK_TOKEN`; tetapkan URL webhook di profil OnlineSIM ke `https://sms.mhmacademy.site/api/webhooks/onlinesim/<token>` (pilihan — polling sudah mencukupi).
 - [ ] Sahkan mata wang profil OnlineSIM (harga `getTariffs` diandaikan dalam mata wang ini; lalai USD) dan tetapkan kadar tukaran manual di admin.
@@ -231,6 +232,8 @@ Semua peralihan ialah `UPDATE … WHERE id = ? AND status = ?` (compare-and-set)
 **Pembayaran (CHIP):** callback/redirect/cron hanyalah *isyarat*. Callback mesti mempunyai `X-Signature` yang sah (RSA PKCS#1 v1.5 + SHA-256 atas badan mentah, kunci daripada `GET /public_key/`). Kemudian server memanggil `GET /purchases/{id}/` dan mengesahkan status `paid`/`cleared`/`settled`, `reference` = rujukan pesanan, `purchase.total` = harga pesanan (sen), mata wang `MYR`, `brand_id`, dan bukan pembelian ujian dalam production. Status `refunded`/`chargeback` memerlukan semakan admin. `payments.status → 'paid'` dibuat secara bersyarat, jadi callback berulang tidak memberi kesan. Redirect pelanggan tidak dianggap bukti bayaran.
 
 **Pembelian:** hanya request yang berjaya menukar `paid → purchasing` memanggil `getNum`. Timeout/ralat tidak pasti → `needs_reconciliation`; **tiada retry automatik** dan **tiada refund** selagi status pembekal tidak diketahui. Cron menukar `purchasing` yang tersekat > 2 minit kepada `needs_reconciliation`. Admin boleh melihat operasi aktif pembekal (`getState`) untuk memadankan tzid.
+
+**Ketahanan:** kerja pengesahan bayaran, pembelian dan polling didaftarkan dengan `waitUntil`, jadi ia selesai walaupun klien (CHIP atau pelayar) memutuskan sambungan. Jika `getNum` tidak berjawab, pesanan masuk `needs_reconciliation`; cron kemudian memadankannya **secara automatik hanya jika** terdapat tepat satu operasi aktif pembekal yang belum dipadankan dengan servis & negara yang sama, tiada pesanan lain bersaing, dan baki masa selaras (±3 minit). Selain itu, admin memadankan secara manual. **Jangan beli nombor secara manual di papan pemuka OnlineSIM menggunakan akaun yang sama dengan laman** (guna akaun berasingan untuk ujian manual), supaya padanan automatik tidak keliru.
 
 **Polling SMS:** hanya pesanan `active`, jarak 5 s dengan backoff ×1.5 hingga 30 s; slot polling dituntut secara atomik; berhenti apabila tamat/selesai. Frontend juga menggunakan backoff dan berhenti untuk status akhir. Webhook OnlineSIM tiada tandatangan dalam dokumentasi, jadi ia hanya mencetuskan fetch semula melalui API.
 

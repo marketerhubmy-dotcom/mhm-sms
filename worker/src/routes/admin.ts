@@ -6,7 +6,7 @@ import { audit } from '../services/audit';
 import { AppError, listCountries, listServices } from '../services/catalog';
 import { getOrder, getProviderBalance, refreshOrder, resolveReconciliation, type OrderRow, type PaymentRow } from '../services/orders';
 import { getMeta, getSettings, intSetting, updateSettings } from '../services/settings';
-import { enforceRateLimit, jsonBody, requireAdmin, type HonoEnv } from '../http';
+import { enforceRateLimit, jsonBody, keepAlive, requireAdmin, type HonoEnv } from '../http';
 
 export const adminRoutes = new Hono<HonoEnv>();
 adminRoutes.use('*', requireAdmin);
@@ -154,7 +154,7 @@ adminRoutes.post('/orders/:id/provider-sync', async (c) => {
   const o = await getOrder(app.db, c.req.param('id'));
   if (!o) throw new AppError('NOT_FOUND', 404, 'Pesanan tidak dijumpai.');
   if (o.status !== 'active') throw new AppError('INVALID_STATE', 409, 'Hanya pesanan aktif boleh disegerakkan.');
-  await refreshOrder(app, o.id, { force: true });
+  await keepAlive(c, refreshOrder(app, o.id, { force: true }));
   await audit(app.db, { actor: admin.id, action: 'order.provider_sync', targetType: 'order', targetId: o.id, now: app.now() });
   return c.json({ ok: true });
 });

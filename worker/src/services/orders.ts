@@ -486,6 +486,65 @@ export async function createRefundRequest(ctx: AppCtx, orderId: string, requeste
 }
 
 // ---------------------------------------------------------------------------
+// Rekonsiliasi automatik (konservatif)
+// ---------------------------------------------------------------------------
+
+/** Tempoh lalai operasi activation OnlineSIM (contoh dokumentasi getNum: time = 900). */
+const DEFAULT_OPERATION_S = 900;
+const AUTO_MATCH_TOLERANCE_S = 180;
+
+/**
+ * Untuk pesanan 'needs_reconciliation' tanpa tzid (cth. getNum terputus): padankan secara automatik
+ * HANYA jika terdapat tepat satu operasi aktif pembekal yang belum dipadankan, dengan servis & negara
+ * yang sama, tiada pesanan tersangkut lain bersaing, dan baki masa operasi selaras dengan masa pembelian.
+ * Selain itu, biarkan untuk semakan admin. Tiada pembelian semula dan tiada refund automatik.
+ */
+export async function autoReconcile(ctx: AppCtx): Promise<number> {
+  const now = ctx.now();
+  const stuck = (
+    await ctx.db
+      .prepare("SELECT * FROM orders WHERE status = 'needs_reconciliation' AND provider_tzid IS NULL AND purchase_started_at > ? ORDER BY purchase_started_at ASC LIMIT 20")
+      .bind(now - (DEFAULT_OPERATION_S + AUTO_MATCH_TOLERANCE_S) * 1000)
+      .all<OrderRow>()
+  ).results;
+  if (!stuck.length) return 0;
+  const ops = await ctx.sms.listOperations();
+  if (!ops || !ops.length) return 0;
+  const placeholders = ops.map(() => '?').join(',');
+  const known = new Set(
+    (await ctx.db.prepare(`SELECT provider_tzid FROM orders WHERE provider_tzid IN (${placeholders})`).bind(...ops.map((o) => o.tzid)).all<{ provider_tzid: string }>()).results.map(
+      (r) => r.provider_tzid,
+    ),
+  );
+  let unmatched = ops.filter((op) => !known.has(op.tzid) && op.number);
+  let matched = 0;
+  for (const o of stuck) {
+    const competitors = stuck.filter((x) => x.service_slug === o.service_slug && x.country_code === o.country_code);
+    const cands = unmatched.filter((op) => op.service === o.service_slug && op.country === o.country_code);
+    if (competitors.length !== 1 || cands.length !== 1) continue;
+    const op = cands[0];
+    const expectedLeft = DEFAULT_OPERATION_S - (now - (o.purchase_started_at ?? now)) / 1000;
+    if (op.timeLeftS == null || Math.abs(op.timeLeftS - expectedLeft) > AUTO_MATCH_TOLERANCE_S) continue;
+    const ok = await transition(ctx, o.id, 'needs_reconciliation', 'active', 'system:auto-reconcile', `Dipadankan automatik dengan operasi ${op.tzid}`, {
+      provider_tzid: op.tzid,
+      phone_number: op.number,
+      provider_status: op.status,
+      activated_at: now,
+      number_expires_at: now + op.timeLeftS * 1000,
+      guard_until: now,
+      next_poll_at: now,
+      poll_interval_s: 5,
+      last_error_code: null,
+    });
+    if (!ok) continue;
+    unmatched = unmatched.filter((x) => x.tzid !== op.tzid);
+    matched++;
+    await audit(ctx.db, { actor: null, action: 'order.auto_reconciled', targetType: 'order', targetId: o.id, details: { tzid: op.tzid }, now });
+  }
+  return matched;
+}
+
+// ---------------------------------------------------------------------------
 // Penyelesaian rekonsiliasi oleh admin
 // ---------------------------------------------------------------------------
 

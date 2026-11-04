@@ -156,6 +156,20 @@ export async function enforceRateLimit(c: C, key: string, limit: number, windowM
   }
 }
 
+/**
+ * Pastikan kerja penting (pengesahan bayaran, pembelian nombor, polling) SELESAI walaupun klien
+ * memutuskan sambungan (cth. CHIP berhenti menunggu callback, telefon tukar aplikasi).
+ * Tanpa waitUntil, Cloudflare boleh membatalkan kerja itu di tengah jalan.
+ */
+export function keepAlive<T>(c: C, p: Promise<T>): Promise<T> {
+  try {
+    c.executionCtx.waitUntil(p.then(() => undefined, () => undefined));
+  } catch {
+    // Tiada ExecutionContext (cth. ujian) — teruskan secara biasa.
+  }
+  return p;
+}
+
 export async function jsonBody<T = Record<string, unknown>>(c: C): Promise<T> {
   try {
     const b = await c.req.json();
